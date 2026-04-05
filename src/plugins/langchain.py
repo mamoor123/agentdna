@@ -171,3 +171,13 @@ class AgentDNAWrapper:
     def __repr__(self):
         status = "registered" if self._registered else "local"
         return f"<AgentDNAWrapper {status} calls={self._stats['total_calls']}>"
+
+    def close(self):
+        """Close the underlying HTTP client."""
+        self._client.close()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args):
+        self.close()
