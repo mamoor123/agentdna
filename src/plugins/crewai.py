@@ -175,3 +175,13 @@ class AgentDNACrew:
         n_agents = len(self.agents)
         n_tasks = len(self.tasks)
         return f"<AgentDNACrew {status} agents={n_agents} tasks={n_tasks}>"
+
+    def close(self):
+        """Close the underlying HTTP client."""
+        self._client.close()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args):
+        self.close()
