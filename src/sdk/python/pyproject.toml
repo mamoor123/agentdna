@@ -3,11 +3,11 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "agentdna"
+name = "agentdna-sdk"
 version = "0.2.0"
 description = "Sentry for AI Agents — one-line observability with local SQLite persistence"
-readme = "../../../README.md"
-license = "Apache-2.0"
+readme = "README.md"
+license = {text = "Apache-2.0"}
 requires-python = ">=3.10"
 authors = [
     { name = "mamoor123" },
@@ -55,3 +55,6 @@ Homepage = "https://github.com/mamoor123/agentdna"
 Documentation = "https://github.com/mamoor123/agentdna#readme"
 Repository = "https://github.com/mamoor123/agentdna"
 Issues = "https://github.com/mamoor123/agentdna/issues"
+
+[tool.hatch.build.targets.wheel]
+packages = ["agentdna"]
