@@ -33,12 +33,13 @@ No network calls. No API key needed. Works offline.
 
 from __future__ import annotations
 
+import atexit
 import asyncio
 import functools
 import json
 import os
+import signal
 import sqlite3
-import statistics
 import time
 from datetime import datetime, timezone
 from pathlib import Path
@@ -204,6 +205,21 @@ class _HotCache:
 # Global hot cache
 _cache = _HotCache(flush_every_n=5)
 
+# Ensure buffered calls are flushed on clean exit
+atexit.register(_cache.close)
+
+def _signal_handler(signum, frame):
+    _cache.close()
+    # Re-raise with default handler so the process exits with the correct signal
+    signal.signal(signum, signal.SIG_DFL)
+    os.kill(os.getpid(), signum)
+
+for _sig in (signal.SIGTERM, signal.SIGINT):
+    try:
+        signal.signal(_sig, _signal_handler)
+    except (OSError, ValueError):
+        pass  # Not all signals are available on all platforms / non-main threads
+
 
 # --- Stats Retrieval ---
 
@@ -232,12 +248,14 @@ def get_stats(func_name: Optional[str] = None) -> dict:
     _cache.flush()
 
     conn = _get_db()
-
-    if func_name:
-        return _get_stats_for(conn, func_name)
-    else:
-        rows = conn.execute("SELECT name FROM functions ORDER BY last_seen DESC").fetchall()
-        return {row[0]: _get_stats_for(conn, row[0]) for row in rows}
+    try:
+        if func_name:
+            return _get_stats_for(conn, func_name)
+        else:
+            rows = conn.execute("SELECT name FROM functions ORDER BY last_seen DESC").fetchall()
+            return {row[0]: _get_stats_for(conn, row[0]) for row in rows}
+    finally:
+        conn.close()
 
 
 def _get_stats_for(conn: sqlite3.Connection, func_name: str) -> dict:
@@ -265,10 +283,17 @@ def _get_stats_for(conn: sqlite3.Connection, func_name: str) -> dict:
     lat_values = [l[0] for l in latencies]
 
     def percentile(values: list[float], p: int) -> float:
+        """Calculate percentile using linear interpolation (same method as numpy)."""
         if not values:
             return 0
-        idx = int(len(values) * p / 100)
-        return values[min(idx, len(values) - 1)]
+        if len(values) == 1:
+            return values[0]
+        k = (len(values) - 1) * p / 100
+        f = int(k)
+        c = f + 1
+        if c >= len(values):
+            return values[f]
+        return values[f] + (k - f) * (values[c] - values[f])
 
     return {
         "total_calls": total,
@@ -295,13 +320,16 @@ def reset_stats(func_name: Optional[str] = None):
     """
     _cache.flush()
     conn = _get_db()
-    if func_name:
-        conn.execute("DELETE FROM functions WHERE name = ?", (func_name,))
-        conn.execute("DELETE FROM calls WHERE func_name = ?", (func_name,))
-    else:
-        conn.execute("DELETE FROM functions")
-        conn.execute("DELETE FROM calls")
-    conn.commit()
+    try:
+        if func_name:
+            conn.execute("DELETE FROM functions WHERE name = ?", (func_name,))
+            conn.execute("DELETE FROM calls WHERE func_name = ?", (func_name,))
+        else:
+            conn.execute("DELETE FROM functions")
+            conn.execute("DELETE FROM calls")
+        conn.commit()
+    finally:
+        conn.close()
 
 
 def export_stats(func_name: Optional[str] = None, format: str = "json") -> str:
