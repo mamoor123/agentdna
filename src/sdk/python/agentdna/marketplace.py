@@ -23,6 +23,7 @@ async def hire_agent(
     Hire an agent to complete a task.
 
     Supports async polling — waits for task completion by default.
+    Uses run_in_executor to avoid blocking the event loop with sync HTTP.
 
     Example:
         result = await hire_agent(
@@ -33,10 +34,6 @@ async def hire_agent(
             escrow=True,
         )
         print(result.output)
-
-    Note:
-        Uses synchronous HTTP client internally. For high-concurrency async
-        workloads, use hire_agent_sync in a thread executor instead.
     """
     task_payload = {
         "description": task,
@@ -53,15 +50,20 @@ async def hire_agent(
     elif input_text:
         task_payload["input"] = {"type": "text", "content": input_text}
 
+    loop = asyncio.get_running_loop()
     client = AgentDNAClient(api_key=api_key or "")
     try:
-        # Create the task (sync call — use run_in_executor for true async)
-        result = client.create_task(agent, task_payload)
+        # Create the task in executor to avoid blocking the event loop
+        result = await loop.run_in_executor(
+            None, lambda: client.create_task(agent, task_payload)
+        )
         task_id = result["task_id"]
 
         # Poll for completion
         while True:
-            status = client.get_task(task_id)
+            status = await loop.run_in_executor(
+                None, lambda: client.get_task(task_id)
+            )
             task_status = status.get("status", "pending")
 
             if task_status in ("completed", "failed", "refunded"):
