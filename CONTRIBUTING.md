@@ -18,32 +18,32 @@ agentdna/
 │   ├── sandbox/        # Agent verification sandbox
 │   ├── marketplace/    # Task marketplace & escrow
 │   ├── sdk/
-│   │   ├── python/     # Python SDK
+│   │   ├── python/     # Python SDK (includes CLI in agentdna/cli.py)
 │   │   └── typescript/ # TypeScript SDK
-│   ├── cli/            # CLI tool
 │   └── dashboard/      # Web dashboard
 ├── tests/
 ├── docs/
+│   └── SPEC.md         # Full specification
 ├── examples/
-└── SPEC.md             # Full specification
+└── conftest.py         # Pytest configuration
 ```
 
 ## Development
 
-### Python SDK
+### Python SDK + CLI
 
 ```bash
 cd src/sdk/python
-pip install -e ".[dev]"
+pip install -e ".[dev,server]"
 pytest
 ```
 
 ### Registry Server
 
 ```bash
-cd src/registry
+cd src/sdk/python
 pip install -e ".[server]"
-uvicorn server:app --reload
+uvicorn src.registry.server:app --reload --app-dir ../..
 ```
 
 ### TypeScript SDK
