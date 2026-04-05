@@ -17,22 +17,38 @@ Usage:
     register_agent("./agentdna.yaml")
 """
 
-from agentdna.client import AgentDNAClient
-from agentdna.models import Agent, AgentSearchResult, TrustScore, TaskResult
-from agentdna.registry import register_agent, load_agent_card
+from agentdna.models import Agent, AgentSearchResult, Capability, Pricing, TrustScore, TaskResult
+from agentdna.registry import register_agent, load_agent_card, generate_agent_card
 from agentdna.discovery import find_agent, search_agents
-from agentdna.marketplace import hire_agent
+from agentdna.marketplace import hire_agent, hire_agent_sync
 
 __version__ = "0.1.0"
 __all__ = [
+    # Client (lazy import to avoid httpx requirement at import time)
     "AgentDNAClient",
+    # Models
     "Agent",
     "AgentSearchResult",
+    "Capability",
+    "Pricing",
     "TrustScore",
     "TaskResult",
+    # Registry
     "register_agent",
     "load_agent_card",
+    "generate_agent_card",
+    # Discovery
     "find_agent",
     "search_agents",
+    # Marketplace
     "hire_agent",
+    "hire_agent_sync",
 ]
+
+
+def __getattr__(name: str):
+    """Lazy import for AgentDNAClient to avoid requiring httpx at import time."""
+    if name == "AgentDNAClient":
+        from agentdna.client import AgentDNAClient
+        return AgentDNAClient
+    raise AttributeError(f"module 'agentdna' has no attribute {name!r}")
