@@ -31,7 +31,7 @@ dependencies = [
 ]
 
 [project.scripts]
-agentdna = "cli.main:cli"
+agentdna = "agentdna.cli:cli"
 
 [project.optional-dependencies]
 dev = [

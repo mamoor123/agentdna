@@ -15,11 +15,11 @@ import sys
 
 import click
 
-from agentdna import __version__
+_CLI_VERSION = "0.1.0"
 
 
 @click.group()
-@click.version_option(version=__version__)
+@click.version_option(version=_CLI_VERSION)
 def cli():
     """🧬 AgentDNA — DNS for AI Agents"""
     pass
