@@ -17,7 +17,7 @@ from datetime import datetime, timezone  # noqa: E402
 from typing import Optional  # noqa: E402
 
 from fastapi import FastAPI, HTTPException  # noqa: E402
-from pydantic import BaseModel  # noqa: E402
+from pydantic import BaseModel, Field  # noqa: E402
 
 from agentdna.trust.scorer import (  # noqa: E402
     LatencyStats,
@@ -54,7 +54,7 @@ class TaskRequest(BaseModel):
     escrow: bool = True
 
 class ReviewRequest(BaseModel):
-    rating: int
+    rating: int = Field(ge=1, le=5, description="Rating from 1 to 5")
     comment: str
     task_id: Optional[str] = None
 
@@ -140,6 +140,36 @@ async def search_agents(
         # Filter by verified status
         if verified is not None and agent.get("verified", False) != verified:
             continue
+
+        # Filter by min_reputation — compute on-the-fly trust score
+        if min_reputation is not None:
+            agent_reviews = REVIEWS.get(agent_id, [])
+            avg_rating = (
+                sum(r["rating"] for r in agent_reviews) / len(agent_reviews)
+                if agent_reviews else 0
+            )
+            tasks = TaskStats(
+                total_submitted=agent.get("total_submitted", 0),
+                total_completed=agent.get("total_tasks_completed", 0),
+                total_failed=agent.get("total_failed", 0),
+                total_timed_out=agent.get("total_timed_out", 0),
+            )
+            quality = QualityStats(avg_rating=avg_rating, review_count=len(agent_reviews))
+            latency = LatencyStats(
+                tasks_within_sla=agent.get("tasks_within_sla", 0),
+                total_tasks_with_timing=agent.get("total_tasks_with_timing", 0),
+                promised_latency_seconds=agent.get("promised_latency_seconds", 0),
+            )
+            uptime = UptimeStats(
+                total_checks=agent.get("uptime_checks", 0),
+                successful_checks=agent.get("uptime_successes", 0),
+            )
+            score = _trust_scorer.compute(
+                tasks=tasks, quality=quality, latency=latency,
+                uptime=uptime, verified=agent.get("verified", False),
+            )
+            if score.total < min_reputation:
+                continue
 
         results.append(agent)
 
