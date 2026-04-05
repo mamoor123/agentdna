@@ -9,13 +9,15 @@ from agentdna.models import Agent, AgentSearchResult, Capability, Pricing, Trust
 def _parse_agent(data: dict) -> Agent:
     """Parse API response into Agent model."""
     capabilities = []
-    for cap in data.get("capabilities", []):
+    for cap in data.get("capabilities", []) or []:
+        if not cap:
+            continue
         pricing = None
         if cap.get("pricing"):
             pricing = Pricing(**cap["pricing"])
         capabilities.append(
             Capability(
-                skill=cap["skill"],
+                skill=cap.get("skill", ""),
                 description=cap.get("description", ""),
                 inputs=cap.get("inputs", []),
                 output=cap.get("output", ""),
