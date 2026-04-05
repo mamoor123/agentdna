@@ -1,0 +1,25 @@
+{
+  "name": "@agentdna/sdk",
+  "version": "0.1.0",
+  "description": "🧬 DNS for AI Agents — Discovery, Trust & Marketplace",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest",
+    "lint": "eslint src/"
+  },
+  "keywords": ["ai", "agents", "a2a", "mcp", "discovery", "marketplace"],
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mamoor123/agentdna.git",
+    "directory": "src/sdk/typescript"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "typescript": "^5.4.0",
+    "vitest": "^1.0.0"
+  },
+  "files": ["dist/", "README.md"]
+}

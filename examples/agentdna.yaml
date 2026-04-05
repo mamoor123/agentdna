@@ -1,0 +1,51 @@
+# Example AgentDNA Card
+# Copy this file to your project root and customize it.
+
+agent:
+  name: "TranscribePro"
+  version: "2.1.0"
+  description: "High-accuracy audio transcription with speaker diarization"
+  protocol: "a2a"
+  endpoint: "https://transcribe-pro.example.com/a2a"
+
+  owner:
+    name: "Acme AI Labs"
+    url: "https://acme-ai.example.com"
+    email: "agents@acme-ai.example.com"
+
+  capabilities:
+    - skill: "transcribe"
+      description: "Transcribe audio files to text"
+      inputs: ["audio/wav", "audio/mp3", "audio/m4a", "audio/ogg"]
+      output: "text/plain"
+      languages: ["en", "zh", "es", "fr", "de", "ja", "ko"]
+      pricing:
+        model: "per_minute"
+        amount: 0.02
+        currency: "USD"
+        free_tier: 60
+      sla:
+        avg_latency: "12s per minute"
+        uptime: "99.7%"
+
+    - skill: "diarize"
+      description: "Identify and separate speakers in audio"
+      inputs: ["audio/wav", "audio/mp3"]
+      output: "application/json"
+      languages: ["en", "zh"]
+      pricing:
+        model: "per_minute"
+        amount: 0.05
+        currency: "USD"
+
+  metadata:
+    framework: "custom"
+    hosting: "cloud"
+    region: "us-east-1"
+    open_source: false
+    tags: ["transcription", "audio", "speech-to-text", "diarization"]
+
+  security:
+    data_handling: "temporary"
+    encryption: true
+    compliance: ["GDPR", "SOC2"]

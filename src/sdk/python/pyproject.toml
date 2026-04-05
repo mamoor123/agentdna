@@ -1,0 +1,52 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "agentdna"
+version = "0.1.0"
+description = "🧬 DNS for AI Agents — Discovery, Trust & Marketplace"
+readme = "../../../../README.md"
+license = "Apache-2.0"
+requires-python = ">=3.10"
+authors = [
+    { name = "mamoor123" },
+]
+keywords = ["ai", "agents", "a2a", "mcp", "discovery", "marketplace"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+dependencies = [
+    "httpx>=0.27.0",
+    "pyyaml>=6.0",
+    "click>=8.0",
+]
+
+[project.scripts]
+agentdna = "cli.main:cli"
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "pytest-asyncio>=0.23",
+    "ruff>=0.4",
+    "mypy>=1.0",
+]
+server = [
+    "fastapi>=0.110.0",
+    "uvicorn>=0.29.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/mamoor123/agentdna"
+Documentation = "https://github.com/mamoor123/agentdna#readme"
+Repository = "https://github.com/mamoor123/agentdna"
+Issues = "https://github.com/mamoor123/agentdna/issues"
