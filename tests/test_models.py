@@ -1,7 +1,5 @@
 """Tests for AgentDNA models."""
 
-import pytest
-
 from agentdna.models import Agent, AgentSearchResult, Capability, Pricing, TaskResult, TrustScore
 
 

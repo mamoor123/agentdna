@@ -257,9 +257,9 @@ class AgentVerifier:
         agent = agent_card.get("agent", agent_card)
 
         required_fields = ["name", "version", "description", "protocol", "endpoint"]
-        for field in required_fields:
-            if not agent.get(field):
-                errors.append(f"Missing required field: {field}")
+        for req_field in required_fields:
+            if not agent.get(req_field):
+                errors.append(f"Missing required field: {req_field}")
 
         capabilities = agent.get("capabilities", [])
         if not capabilities:
@@ -439,7 +439,7 @@ class AgentVerifier:
         start = time.time()
         try:
             async with httpx.AsyncClient(timeout=self.HEALTH_TIMEOUT) as client:
-                resp = await client.get(endpoint)
+                await client.get(endpoint)
                 elapsed = (time.time() - start) * 1000
 
                 if elapsed < 1000:

@@ -1,4 +1,4 @@
-"""Pytest configuration — add SDK to path."""
+"""Pytest configuration — add SDK source to path."""
 import sys
 from pathlib import Path
 

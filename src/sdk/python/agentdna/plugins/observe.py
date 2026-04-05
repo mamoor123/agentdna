@@ -26,6 +26,7 @@ What it tracks:
 
 from __future__ import annotations
 
+import asyncio
 import functools
 import time
 from typing import Callable
@@ -132,7 +133,7 @@ def observe(func: Callable = None, **config_kwargs):
     stats = ObserveStats()
     _stats_registry[func.__name__] = stats
 
-    if functools.iscoroutinefunction(func):
+    if asyncio.iscoroutinefunction(func):
         @functools.wraps(func)
         async def async_wrapper(*args, **kwargs):
             start = time.time()

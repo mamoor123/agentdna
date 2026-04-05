@@ -71,12 +71,12 @@ class TestTaskStats:
 
 class TestLatencyStats:
     def test_sla_adherence(self):
-        l = LatencyStats(tasks_within_sla=90, total_tasks_with_timing=100)
-        assert l.sla_adherence_rate == 0.9
+        lat = LatencyStats(tasks_within_sla=90, total_tasks_with_timing=100)
+        assert lat.sla_adherence_rate == 0.9
 
     def test_sla_no_data(self):
-        l = LatencyStats()
-        assert l.sla_adherence_rate == 1.0  # benefit of the doubt
+        lat = LatencyStats()
+        assert lat.sla_adherence_rate == 1.0  # benefit of the doubt
 
 
 class TestUptimeStats:

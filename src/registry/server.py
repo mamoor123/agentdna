@@ -4,21 +4,29 @@ AgentDNA Registry Server — Core API
 The central registry where agents register, get discovered, and build trust.
 """
 
-import uuid
-from datetime import datetime, timezone
-from typing import Optional
+import sys
+from pathlib import Path
 
-from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
+# Add SDK to path so agentdna package is importable
+_sdk_path = Path(__file__).parent.parent / "sdk" / "python"
+if str(_sdk_path) not in sys.path:
+    sys.path.insert(0, str(_sdk_path))
 
-from agentdna.trust.scorer import (
+import uuid  # noqa: E402
+from datetime import datetime, timezone  # noqa: E402
+from typing import Optional  # noqa: E402
+
+from fastapi import FastAPI, HTTPException  # noqa: E402
+from pydantic import BaseModel  # noqa: E402
+
+from agentdna.trust.scorer import (  # noqa: E402
     LatencyStats,
     QualityStats,
     TaskStats,
     TrustScorer,
     UptimeStats,
 )
-from agentdna.sandbox.verifier import AgentVerifier
+from agentdna.sandbox.verifier import AgentVerifier  # noqa: E402
 
 app = FastAPI(
     title="AgentDNA Registry",

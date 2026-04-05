@@ -34,7 +34,6 @@ Usage:
 
 from __future__ import annotations
 
-import time
 from typing import Any, Optional
 
 from agentdna.client import AgentDNAClient
@@ -98,7 +97,6 @@ class AgentDNACrew:
     def kickoff(self, inputs: dict = None) -> Any:
         """Run the crew with AgentDNA tracking."""
         self._stats["total_kickoffs"] += 1
-        start = time.time()
 
         try:
             if self._inner_crew:
@@ -108,7 +106,7 @@ class AgentDNACrew:
 
             self._stats["total_tasks_completed"] += len(self.tasks)
             return result
-        except Exception as e:
+        except Exception:
             self._stats["total_errors"] += 1
             raise
 
@@ -124,7 +122,7 @@ class AgentDNACrew:
 
             self._stats["total_tasks_completed"] += len(self.tasks)
             return result
-        except Exception as e:
+        except Exception:
             self._stats["total_errors"] += 1
             raise
 

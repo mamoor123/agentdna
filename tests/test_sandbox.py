@@ -1,7 +1,5 @@
 """Tests for the Sandbox Verification System."""
 
-import pytest
-
 from agentdna.sandbox.verifier import (
     AgentVerifier,
     CheckResult,
@@ -84,7 +82,7 @@ class TestAgentVerifier:
         }
         result = verifier._check_agent_card_valid(card)
         assert result.status == CheckStatus.FAIL
-        assert "Missing required field" in result.message
+        assert any("Missing required field" in e for e in result.details["errors"])
 
     def test_check_agent_card_no_capabilities(self):
         verifier = AgentVerifier()
@@ -98,7 +96,7 @@ class TestAgentVerifier:
         }
         result = verifier._check_agent_card_valid(card)
         assert result.status == CheckStatus.FAIL
-        assert "No capabilities" in result.message
+        assert any("No capabilities" in e for e in result.details["errors"])
 
     def test_check_https_valid(self):
         verifier = AgentVerifier()

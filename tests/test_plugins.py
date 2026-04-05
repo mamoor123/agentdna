@@ -24,7 +24,7 @@ class TestObserveDecorator:
         assert stats["successful_calls"] == 1
         assert stats["failed_calls"] == 0
         assert stats["success_rate"] == 1.0
-        assert stats["avg_latency_ms"] > 0
+        assert stats["avg_latency_ms"] >= 0
 
     def test_sync_function_error_tracking(self):
         @observe

@@ -86,7 +86,7 @@ class AgentDNAWrapper:
             elapsed = (time.time() - start) * 1000
             self._stats["total_latency_ms"] += elapsed
             return result
-        except Exception as e:
+        except Exception:
             self._stats["total_errors"] += 1
             raise
 
@@ -103,7 +103,7 @@ class AgentDNAWrapper:
             elapsed = (time.time() - start) * 1000
             self._stats["total_latency_ms"] += elapsed
             return result
-        except Exception as e:
+        except Exception:
             self._stats["total_errors"] += 1
             raise
 
@@ -120,7 +120,7 @@ class AgentDNAWrapper:
             elapsed = (time.time() - start) * 1000
             self._stats["total_latency_ms"] += elapsed
             return result
-        except Exception as e:
+        except Exception:
             self._stats["total_errors"] += 1
             raise
 

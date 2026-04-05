@@ -98,7 +98,7 @@ def init(name, output):
 
     path = generate_agent_card(name=name, output_path=output)
     click.echo(f"✅ Created agent card: {path}")
-    click.echo(f"Edit it with your agent's details, then run: agentdna register")
+    click.echo("Edit it with your agent's details, then run: agentdna register")
 
 
 @cli.command()
