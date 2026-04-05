@@ -1,84 +1,61 @@
 # Contributing to AgentDNA
 
-Thanks for your interest in contributing! 🧬
+Thanks for your interest! Here's how to get involved.
 
-## Getting Started
-
-1. Fork the repository
-2. Clone your fork: `git clone https://github.com/YOUR_USERNAME/agentdna.git`
-3. Create a branch: `git checkout -b feature/my-feature`
-
-## Project Structure
-
-```
-agentdna/
-├── src/
-│   ├── registry/       # Core API server (FastAPI)
-│   ├── trust/          # Trust scoring engine
-│   ├── sandbox/        # Agent verification sandbox
-│   ├── marketplace/    # Task marketplace & escrow
-│   ├── sdk/
-│   │   ├── python/     # Python SDK (includes CLI in agentdna/cli.py)
-│   │   └── typescript/ # TypeScript SDK
-│   └── dashboard/      # Web dashboard
-├── tests/
-├── docs/
-│   └── SPEC.md         # Full specification
-├── examples/
-└── conftest.py         # Pytest configuration
-```
-
-## Development
-
-### Python SDK + CLI
+## Quick Start
 
 ```bash
-cd src/sdk/python
-pip install -e ".[dev,server]"
+git clone https://github.com/mamoor123/agentdna.git
+cd agentdna
+pip install -e ".[dev]"
 pytest
 ```
 
-### Registry Server
+## Ways to Contribute
 
-```bash
-cd src/sdk/python
-pip install -e ".[server]"
-uvicorn src.registry.server:app --reload --app-dir ../..
-```
+### 🐛 Bug Reports
+Open an issue with:
+- What you expected
+- What actually happened
+- Steps to reproduce
 
-### TypeScript SDK
+### ✨ Features
+Check existing issues first. For new ideas, open a discussion or issue tagged `enhancement`.
 
-```bash
-cd src/sdk/typescript
-npm install
-npm run build
-```
+### 🔧 Code
+1. Fork the repo
+2. Create a branch: `git checkout -b feat/your-feature`
+3. Make your changes
+4. Run tests: `pytest`
+5. Submit a PR
 
-## What to Work On
+### 📖 Docs
+Documentation improvements are always welcome — even fixing a typo counts.
 
-Check the [Issues](https://github.com/mamoor123/agentdna/issues) page. Look for:
+## Good First Issues
 
-- `good first issue` — great for newcomers
-- `help wanted` — we'd love your help
-- `enhancement` — new features
+Look for issues tagged [`good first issue`](../../labels/good%20first%20issue) — these are scoped, well-defined, and don't require deep context.
 
 ## Code Style
 
-- **Python**: Use `ruff` for linting and formatting
-- **TypeScript**: Use ESLint + Prettier
-- **Commits**: Use conventional commits (`feat:`, `fix:`, `docs:`)
+- Python: follow PEP 8, use `ruff` for linting
+- TypeScript: follow the existing ESLint config
+- Run `make lint` before submitting
 
-## Pull Requests
+## What We're Looking For
 
-1. Keep PRs focused — one feature or fix per PR
-2. Add tests for new functionality
-3. Update docs if you change public APIs
-4. Fill out the PR template
+Right now, the highest-value contributions are:
+
+1. **Framework integrations** — more plugins beyond LangChain/CrewAI
+2. **Agent Card validators** — schema validation, linters
+3. **Trust engine improvements** — better scoring algorithms
+4. **Dashboard features** — search, filtering, agent comparisons
+5. **Tests** — we always need more coverage
 
 ## Questions?
 
-Open a [Discussion](https://github.com/mamoor123/agentdna/discussions) — we're friendly!
+Open an issue or start a discussion. No question is too basic.
 
 ## License
 
-By contributing, you agree your contributions will be licensed under Apache 2.0.
+By contributing, you agree your code will be licensed under the same license as the project.

@@ -2,42 +2,48 @@
 AgentDNA Registry Server — Core API
 
 The central registry where agents register, get discovered, and build trust.
+Uses SQLite for persistence (survives restarts).
 """
 
-import sys
-from pathlib import Path
+import uuid
+from datetime import datetime, timezone
+from typing import Optional
 
-# Add SDK to path so agentdna package is importable
-_sdk_path = Path(__file__).parent.parent / "sdk" / "python"
-if str(_sdk_path) not in sys.path:
-    sys.path.insert(0, str(_sdk_path))
+from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel, Field
 
-import uuid  # noqa: E402
-from datetime import datetime, timezone  # noqa: E402
-from typing import Optional  # noqa: E402
-
-from fastapi import FastAPI, HTTPException  # noqa: E402
-from pydantic import BaseModel, Field  # noqa: E402
-
-from agentdna.trust.scorer import (  # noqa: E402
+from agentdna.trust.scorer import (
     LatencyStats,
     QualityStats,
     TaskStats,
     TrustScorer,
     UptimeStats,
 )
-from agentdna.sandbox.verifier import AgentVerifier  # noqa: E402
+from agentdna.sandbox.verifier import AgentVerifier
+
+from registry.storage import (
+    save_agent,
+    get_agent,
+    list_agents,
+    get_all_agents,
+    update_heartbeat,
+    set_verified,
+    save_review,
+    get_reviews,
+    save_task,
+    get_task as get_task_from_db,
+    save_verification_report,
+    get_verification_report,
+    get_registry_stats,
+)
 
 app = FastAPI(
     title="AgentDNA Registry",
     description="🧬 DNS for AI Agents — Discovery, Trust & Marketplace",
-    version="0.1.0",
+    version="0.2.0",
 )
 
-# In-memory store (swap for PostgreSQL in production)
-AGENTS: dict[str, dict] = {}
-REVIEWS: dict[str, list] = {}
-TASKS: dict[str, dict] = {}
+_trust_scorer = TrustScorer()
 
 
 # --- Models ---
@@ -67,26 +73,35 @@ async def register_agent(card: AgentCard):
     agent = card.agent
     name = agent.get("name", "").lower().replace(" ", "-")
     version = agent.get("version", "1.0.0")
-    # Use full version in ID to prevent collisions between minor/patch versions
     safe_version = version.replace(":", "-")
     agent_id = f"dna:{name}:v{safe_version}"
 
-    AGENTS[agent_id] = {
+    agent_data = {
         "id": agent_id,
         **agent,
         "registered_at": datetime.now(timezone.utc).isoformat(),
         "online": True,
+        "total_submitted": 0,
         "total_tasks_completed": 0,
+        "total_failed": 0,
+        "total_timed_out": 0,
+        "tasks_within_sla": 0,
+        "total_tasks_with_timing": 0,
+        "promised_latency_seconds": 0,
+        "uptime_checks": 0,
+        "uptime_successes": 0,
+        "verified": False,
     }
 
+    save_agent(agent_id, agent_data)
     return {"agent_id": agent_id, "status": "registered"}
 
 
 @app.get("/api/v1/agents")
-async def list_agents(limit: int = 20, offset: int = 0):
+async def list_agents_endpoint(limit: int = 20, offset: int = 0):
     """List all registered agents."""
-    agents = list(AGENTS.values())[offset:offset + limit]
-    return {"agents": agents, "total": len(AGENTS)}
+    agents, total = list_agents(limit=limit, offset=offset)
+    return {"agents": agents, "total": total}
 
 
 @app.get("/api/v1/agents/search")
@@ -103,9 +118,10 @@ async def search_agents(
 ):
     """Search for agents by capability."""
     tag_list = [t.strip() for t in tags.split(",") if t.strip()] if tags else []
+    all_agents = get_all_agents()
     results = []
 
-    for agent_id, agent in AGENTS.items():
+    for agent_id, agent in all_agents.items():
         # Filter by skill
         if skill:
             caps = [c for c in agent.get("capabilities", []) if c]
@@ -128,7 +144,7 @@ async def search_agents(
             if not all(t in agent_tags for t in tag_list):
                 continue
 
-        # Filter by max_price — reject agents whose cheapest capability exceeds limit
+        # Filter by max_price
         if max_price is not None:
             caps = [c for c in agent.get("capabilities", []) if c]
             prices = [
@@ -143,9 +159,9 @@ async def search_agents(
         if verified is not None and agent.get("verified", False) != verified:
             continue
 
-        # Filter by min_reputation — compute on-the-fly trust score
+        # Filter by min_reputation
         if min_reputation is not None:
-            agent_reviews = REVIEWS.get(agent_id, [])
+            agent_reviews = get_reviews(agent_id)
             avg_rating = (
                 sum(r["rating"] for r in agent_reviews) / len(agent_reviews)
                 if agent_reviews else 0
@@ -190,28 +206,24 @@ async def search_agents(
 
 
 @app.get("/api/v1/agents/{agent_id}")
-async def get_agent(agent_id: str):
+async def get_agent_endpoint(agent_id: str):
     """Get agent details."""
-    if agent_id not in AGENTS:
+    agent = get_agent(agent_id)
+    if agent is None:
         raise HTTPException(404, f"Agent not found: {agent_id}")
-    return AGENTS[agent_id]
+    return agent
 
 
 # --- Trust ---
 
-_trust_scorer = TrustScorer()
-
-
 @app.get("/api/v1/agents/{agent_id}/trust")
 async def get_trust_score_endpoint(agent_id: str):
     """Get trust score for an agent using the full scoring algorithm."""
-    if agent_id not in AGENTS:
+    agent = get_agent(agent_id)
+    if agent is None:
         raise HTTPException(404, f"Agent not found: {agent_id}")
 
-    agent = AGENTS[agent_id]
-    agent_reviews = REVIEWS.get(agent_id, [])
-
-    # Build stats from stored data
+    agent_reviews = get_reviews(agent_id)
     avg_rating = (
         sum(r["rating"] for r in agent_reviews) / len(agent_reviews)
         if agent_reviews else 0
@@ -258,17 +270,14 @@ async def get_trust_score_endpoint(agent_id: str):
 @app.post("/api/v1/agents/{agent_id}/reviews")
 async def submit_review(agent_id: str, review: ReviewRequest):
     """Submit a review for an agent."""
-    if agent_id not in AGENTS:
+    agent = get_agent(agent_id)
+    if agent is None:
         raise HTTPException(404, f"Agent not found: {agent_id}")
 
-    if agent_id not in REVIEWS:
-        REVIEWS[agent_id] = []
-
-    REVIEWS[agent_id].append({
+    save_review(agent_id, {
         "rating": review.rating,
         "comment": review.comment,
         "task_id": review.task_id,
-        "created_at": datetime.now(timezone.utc).isoformat(),
     })
 
     return {"status": "review submitted"}
@@ -279,11 +288,12 @@ async def submit_review(agent_id: str, review: ReviewRequest):
 @app.post("/api/v1/agents/{agent_id}/tasks")
 async def create_task(agent_id: str, task: TaskRequest):
     """Create a task for an agent (hire them)."""
-    if agent_id not in AGENTS:
+    agent = get_agent(agent_id)
+    if agent is None:
         raise HTTPException(404, f"Agent not found: {agent_id}")
 
     task_id = str(uuid.uuid4())
-    TASKS[task_id] = {
+    task_data = {
         "task_id": task_id,
         "agent_id": agent_id,
         "description": task.description,
@@ -294,15 +304,17 @@ async def create_task(agent_id: str, task: TaskRequest):
         "created_at": datetime.now(timezone.utc).isoformat(),
     }
 
+    save_task(task_id, agent_id, task_data)
     return {"task_id": task_id, "status": "pending"}
 
 
 @app.get("/api/v1/tasks/{task_id}")
-async def get_task(task_id: str):
+async def get_task_endpoint(task_id: str):
     """Get task status."""
-    if task_id not in TASKS:
+    task = get_task_from_db(task_id)
+    if task is None:
         raise HTTPException(404, f"Task not found: {task_id}")
-    return TASKS[task_id]
+    return task
 
 
 # --- Heartbeat ---
@@ -310,12 +322,8 @@ async def get_task(task_id: str):
 @app.post("/api/v1/agents/{agent_id}/heartbeat")
 async def heartbeat(agent_id: str):
     """Agent heartbeat."""
-    if agent_id not in AGENTS:
+    if not update_heartbeat(agent_id):
         raise HTTPException(404, f"Agent not found: {agent_id}")
-
-    AGENTS[agent_id]["online"] = True
-    AGENTS[agent_id]["last_heartbeat"] = datetime.now(timezone.utc).isoformat()
-
     return {"status": "ok"}
 
 
@@ -323,26 +331,23 @@ async def heartbeat(agent_id: str):
 
 @app.get("/health")
 async def health():
+    stats = get_registry_stats()
     return {
         "status": "healthy",
-        "agents_registered": len(AGENTS),
-        "tasks_created": len(TASKS),
-        "version": "0.1.0",
+        "version": "0.2.0",
+        **stats,
     }
 
 
 # --- Sandbox Verification ---
 
-VERIFICATION_REPORTS: dict[str, dict] = {}
-
-
 @app.post("/api/v1/agents/{agent_id}/verify")
 async def verify_agent_endpoint(agent_id: str):
-    """Run sandbox verification against an agent."""
-    if agent_id not in AGENTS:
+    """Run remote probe verification against an agent."""
+    agent = get_agent(agent_id)
+    if agent is None:
         raise HTTPException(404, f"Agent not found: {agent_id}")
 
-    agent = AGENTS[agent_id]
     endpoint = agent.get("endpoint", "")
     protocol = agent.get("protocol", "a2a")
 
@@ -357,18 +362,20 @@ async def verify_agent_endpoint(agent_id: str):
         agent_card=agent,
     )
 
-    VERIFICATION_REPORTS[agent_id] = report.to_dict()
+    report_dict = report.to_dict()
+    save_verification_report(agent_id, report_dict)
 
     # Update agent verification status
     if report.passed:
-        AGENTS[agent_id]["verified"] = True
+        set_verified(agent_id, True)
 
-    return report.to_dict()
+    return report_dict
 
 
 @app.get("/api/v1/agents/{agent_id}/verify")
-async def get_verification_report(agent_id: str):
+async def get_verification_report_endpoint(agent_id: str):
     """Get the latest verification report for an agent."""
-    if agent_id not in VERIFICATION_REPORTS:
+    report = get_verification_report(agent_id)
+    if report is None:
         raise HTTPException(404, f"No verification report found for: {agent_id}")
-    return VERIFICATION_REPORTS[agent_id]
+    return report
