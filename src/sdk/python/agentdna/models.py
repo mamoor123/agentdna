@@ -40,14 +40,6 @@ class Capability:
 
 
 @dataclass
-class SLA:
-    """Service Level Agreement."""
-
-    avg_latency: str = ""
-    uptime: str = ""
-
-
-@dataclass
 class TrustScore:
     """Trust/reputation score for an agent."""
 
