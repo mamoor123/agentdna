@@ -6,7 +6,7 @@ build-backend = "hatchling.build"
 name = "agentdna"
 version = "0.1.0"
 description = "🧬 DNS for AI Agents — Discovery, Trust & Marketplace"
-readme = "../../../../README.md"
+readme = "../../../README.md"
 license = "Apache-2.0"
 requires-python = ">=3.10"
 authors = [
