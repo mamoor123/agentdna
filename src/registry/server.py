@@ -11,6 +11,14 @@ from typing import Optional
 from fastapi import FastAPI, HTTPException, Query
 from pydantic import BaseModel
 
+from agentdna.trust.scorer import (
+    LatencyStats,
+    QualityStats,
+    TaskStats,
+    TrustScorer,
+    UptimeStats,
+)
+
 app = FastAPI(
     title="AgentDNA Registry",
     description="🧬 DNS for AI Agents — Discovery, Trust & Marketplace",
@@ -120,28 +128,58 @@ async def search_agents(
 
 # --- Trust ---
 
+_trust_scorer = TrustScorer()
+
+
 @app.get("/api/v1/agents/{agent_id}/trust")
-async def get_trust_score(agent_id: str):
-    """Get trust score for an agent."""
+async def get_trust_score_endpoint(agent_id: str):
+    """Get trust score for an agent using the full scoring algorithm."""
     if agent_id not in AGENTS:
         raise HTTPException(404, f"Agent not found: {agent_id}")
 
+    agent = AGENTS[agent_id]
     agent_reviews = REVIEWS.get(agent_id, [])
+
+    # Build stats from stored data
     avg_rating = (
         sum(r["rating"] for r in agent_reviews) / len(agent_reviews)
-        if agent_reviews
-        else 0
+        if agent_reviews else 0
     )
 
-    # Simplified scoring (production version uses the full algorithm)
+    tasks = TaskStats(
+        total_submitted=agent.get("total_submitted", 0),
+        total_completed=agent.get("total_tasks_completed", 0),
+        total_failed=agent.get("total_failed", 0),
+        total_timed_out=agent.get("total_timed_out", 0),
+    )
+
+    quality = QualityStats(
+        avg_rating=avg_rating,
+        review_count=len(agent_reviews),
+    )
+
+    latency = LatencyStats(
+        tasks_within_sla=agent.get("tasks_within_sla", 0),
+        total_tasks_with_timing=agent.get("total_tasks_with_timing", 0),
+        promised_latency_seconds=agent.get("promised_latency_seconds", 0),
+    )
+
+    uptime = UptimeStats(
+        total_checks=agent.get("uptime_checks", 0),
+        successful_checks=agent.get("uptime_successes", 0),
+    )
+
+    score = _trust_scorer.compute(
+        tasks=tasks,
+        quality=quality,
+        latency=latency,
+        uptime=uptime,
+        verified=agent.get("verified", False),
+    )
+
     return {
         "agent_id": agent_id,
-        "total": min(100, int(avg_rating * 20)),
-        "task_completion": min(40, AGENTS[agent_id].get("total_tasks_completed", 0) // 100),
-        "response_quality": int(avg_rating * 5),
-        "latency_reliability": 12,
-        "uptime_score": 8,
-        "verification_bonus": 10 if AGENTS[agent_id].get("verified") else 0,
+        **score.to_dict(),
         "review_count": len(agent_reviews),
     }
 
