@@ -37,7 +37,7 @@ async def hire_agent(
         )
         print(result.output)
     """
-    task_payload = {
+    task_payload: dict = {
         "description": task,
         "max_price": max_price,
         "currency": currency,

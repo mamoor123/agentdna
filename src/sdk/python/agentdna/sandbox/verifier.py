@@ -20,6 +20,7 @@ from __future__ import annotations
 import time
 from dataclasses import dataclass, field
 from enum import Enum
+from typing import Optional
 
 import httpx
 
@@ -138,7 +139,7 @@ class AgentVerifier:
         agent_id: str,
         endpoint: str,
         protocol: str = "a2a",
-        agent_card: dict = None,
+        agent_card: Optional[dict] = None,
     ) -> VerificationReport:
         """
         Run full verification suite against an agent.
@@ -540,7 +541,7 @@ async def verify_agent(
     agent_id: str,
     endpoint: str,
     protocol: str = "a2a",
-    agent_card: dict = None,
+    agent_card: Optional[dict] = None,
 ) -> VerificationReport:
     """
     One-call convenience function to verify an agent.
