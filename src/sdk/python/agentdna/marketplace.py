@@ -1,6 +1,7 @@
 """Task marketplace — hire agents with escrow."""
 
 import asyncio
+from typing import Optional
 
 from agentdna.client import AgentDNAClient
 from agentdna.models import TaskResult
@@ -33,6 +34,10 @@ async def hire_agent(
             escrow=True,
         )
         print(result.output)
+
+    Note:
+        Uses synchronous HTTP client internally. For high-concurrency async
+        workloads, use hire_agent_sync in a thread executor instead.
     """
     task_payload = {
         "description": task,
@@ -49,8 +54,9 @@ async def hire_agent(
     elif input_text:
         task_payload["input"] = {"type": "text", "content": input_text}
 
-    with AgentDNAClient(api_key=api_key or "") as client:
-        # Create the task
+    client = AgentDNAClient(api_key=api_key or "")
+    try:
+        # Create the task (sync call — use run_in_executor for true async)
         result = client.create_task(agent, task_payload)
         task_id = result["task_id"]
 
@@ -72,6 +78,8 @@ async def hire_agent(
                 )
 
             await asyncio.sleep(poll_interval)
+    finally:
+        client.close()
 
 
 def hire_agent_sync(*args, **kwargs) -> TaskResult:
