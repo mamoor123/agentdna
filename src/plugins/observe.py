@@ -28,8 +28,7 @@ from __future__ import annotations
 
 import functools
 import time
-import traceback
-from typing import Any, Callable, Optional
+from typing import Callable
 
 
 class ObserveConfig:
