@@ -1,7 +1,6 @@
 """Task marketplace — hire agents with escrow."""
 
 import asyncio
-from typing import Optional
 
 from agentdna.client import AgentDNAClient
 from agentdna.models import TaskResult
