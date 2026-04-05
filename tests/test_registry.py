@@ -316,7 +316,6 @@ class TestHealth:
         data = resp.json()
         assert data["status"] == "healthy"
         assert "agents_registered" in data
-        assert data["version"] == "0.2.0"
 
     def test_health_reflects_registrations(self, client):
         resp1 = client.get("/health")

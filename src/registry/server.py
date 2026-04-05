@@ -3,13 +3,20 @@ AgentDNA Registry Server — Core API
 
 The central registry where agents register, get discovered, and build trust.
 Uses SQLite for persistence (survives restarts).
+
+Auth:
+- GET requests: open (search, list, view)
+- POST/PUT/DELETE: require API key (Authorization: Bearer <key>)
+- Rate limiting: 60 req/min default, 10 req/min for verification
+- Set AGENTDNA_AUTH_DISABLED=1 to disable auth (dev mode)
+- Set AGENTNA_API_KEYS=key1,key2 to enable auth
 """
 
 import uuid
 from datetime import datetime, timezone
 from typing import Optional
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from agentdna.trust.scorer import (
@@ -36,12 +43,16 @@ from registry.storage import (
     get_verification_report,
     get_registry_stats,
 )
+from registry.auth import AuthMiddleware, get_auth_status
 
 app = FastAPI(
     title="AgentDNA Registry",
     description="🧬 DNS for AI Agents — Discovery, Trust & Marketplace",
-    version="0.2.0",
+    version="0.3.0",
 )
+
+# Add auth + rate limiting middleware
+app.add_middleware(AuthMiddleware)
 
 _trust_scorer = TrustScorer()
 
@@ -332,10 +343,12 @@ async def heartbeat(agent_id: str):
 @app.get("/health")
 async def health():
     stats = get_registry_stats()
+    auth = get_auth_status()
     return {
         "status": "healthy",
-        "version": "0.2.0",
+        "version": "0.3.0",
         **stats,
+        "auth": auth,
     }
 
 
