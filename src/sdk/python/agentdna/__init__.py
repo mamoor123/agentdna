@@ -5,13 +5,13 @@ Discovery, Trust & Marketplace for AI agents.
 The missing layer between A2A and your agents.
 
 Usage:
-    from agentdna import find_agent, hire_agent, register_agent
+    from agentdna import find_agent, hire_agent_sync, register_agent
 
     # Find an agent
     agent = find_agent(skill="transcribe", language="zh", max_price=0.03)
 
-    # Hire an agent
-    result = await hire_agent(agent=agent.id, task="Transcribe this", input_file="audio.wav")
+    # Hire an agent (sync)
+    result = hire_agent_sync(agent=agent.id, task="Transcribe this", input_file="audio.wav")
 
     # Register your agent
     register_agent("./agentdna.yaml")
