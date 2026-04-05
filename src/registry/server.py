@@ -104,14 +104,14 @@ async def search_agents(
     for agent_id, agent in AGENTS.items():
         # Filter by skill
         if skill:
-            caps = agent.get("capabilities", [])
-            if not any(skill.lower() in c.get("skill", "").lower() for c in caps):
+            caps = [c for c in agent.get("capabilities", []) if c]
+            if not any(skill.lower() in (c.get("skill") or "").lower() for c in caps):
                 continue
 
         # Filter by language
         if language:
-            caps = agent.get("capabilities", [])
-            if not any(language in c.get("languages", []) for c in caps):
+            caps = [c for c in agent.get("capabilities", []) if c]
+            if not any(language in (c.get("languages") or []) for c in caps):
                 continue
 
         # Filter by protocol
