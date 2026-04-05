@@ -18,6 +18,7 @@ from agentdna.trust.scorer import (
     TrustScorer,
     UptimeStats,
 )
+from agentdna.sandbox.verifier import AgentVerifier
 
 app = FastAPI(
     title="AgentDNA Registry",
@@ -258,3 +259,46 @@ async def health():
         "tasks_created": len(TASKS),
         "version": "0.1.0",
     }
+
+
+# --- Sandbox Verification ---
+
+VERIFICATION_REPORTS: dict[str, dict] = {}
+
+
+@app.post("/api/v1/agents/{agent_id}/verify")
+async def verify_agent_endpoint(agent_id: str):
+    """Run sandbox verification against an agent."""
+    if agent_id not in AGENTS:
+        raise HTTPException(404, f"Agent not found: {agent_id}")
+
+    agent = AGENTS[agent_id]
+    endpoint = agent.get("endpoint", "")
+    protocol = agent.get("protocol", "a2a")
+
+    if not endpoint:
+        raise HTTPException(400, "Agent has no endpoint configured")
+
+    verifier = AgentVerifier()
+    report = await verifier.verify(
+        agent_id=agent_id,
+        endpoint=endpoint,
+        protocol=protocol,
+        agent_card=agent,
+    )
+
+    VERIFICATION_REPORTS[agent_id] = report.to_dict()
+
+    # Update agent verification status
+    if report.passed:
+        AGENTS[agent_id]["verified"] = True
+
+    return report.to_dict()
+
+
+@app.get("/api/v1/agents/{agent_id}/verify")
+async def get_verification_report(agent_id: str):
+    """Get the latest verification report for an agent."""
+    if agent_id not in VERIFICATION_REPORTS:
+        raise HTTPException(404, f"No verification report found for: {agent_id}")
+    return VERIFICATION_REPORTS[agent_id]
