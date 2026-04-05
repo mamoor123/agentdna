@@ -58,10 +58,10 @@ class AgentDNAWrapper:
         self.api_key = api_key
         self._client = AgentDNAClient(api_key=api_key or "")
         self._registered = False
-        self._stats = {
+        self._stats: dict[str, int | float] = {
             "total_calls": 0,
             "total_errors": 0,
-            "total_latency_ms": 0,
+            "total_latency_ms": 0.0,
         }
 
         if auto_register and agent_card:

@@ -192,7 +192,7 @@ class TrustScorer:
         Returns:
             TrustScoreResult with full breakdown
         """
-        warnings = []
+        warnings: list[str] = []
 
         # --- 1. Task Completion (40 points max) ---
         task_score = self._score_task_completion(tasks, warnings)
@@ -346,6 +346,7 @@ class TrustScorer:
 
         # Apply diminishing returns for very high uptime
         # 99% and 99.9% shouldn't be very different in score
+        adjusted: float
         if rate >= 0.99:
             adjusted = 100
         elif rate >= 0.95:
