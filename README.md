@@ -4,18 +4,19 @@
 
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 [![GitHub Stars](https://img.shields.io/github/stars/mamoor123/agentdna)](https://github.com/mamoor123/agentdna/stargazers)
-[![Discord](https://img.shields.io/discord/XXXXXXX)](https://discord.gg/agentdna)
+[![Python](https://img.shields.io/badge/Python-SDK-blue)](src/sdk/python)
+[![TypeScript](https://img.shields.io/badge/TypeScript-SDK-blue)](src/sdk/typescript)
 
 ---
 
 ## The Problem
 
-Your coding agent can't find a transcription agent.  
-Your research agent can't hire a fact-checking agent.  
+Your coding agent can't find a transcription agent.
+Your research agent can't hire a fact-checking agent.
 Agents can **talk** — but they can't **discover** each other.
 
-Google built [A2A](https://github.com/a2aproject/A2A) for agent communication.  
-Anthropic built [MCP](https://modelcontextprotocol.io) for tool integration.  
+Google built [A2A](https://github.com/a2aproject/A2A) for agent communication.
+Anthropic built [MCP](https://modelcontextprotocol.io) for tool integration.
 **Nobody built the discovery and trust layer in between.**
 
 AgentDNA is that layer.
@@ -24,127 +25,141 @@ AgentDNA is that layer.
 YOUR AGENT → [AgentDNA: find + trust + hire] → ANY AGENT
 ```
 
-## What AgentDNA Does
+## What's Inside
 
-| Feature | Description |
-|---------|-------------|
-| 🔍 **Agent Registry** | Register your agent, get discovered by others |
-| 📇 **Capability Search** | Find agents by skill, price, language, reputation |
-| ⭐ **Trust Scoring** | DNA Score (0-100) based on task completion, quality, uptime |
-| 🔐 **Verification** | Sandbox testing & security audits for agents |
-| 💰 **Task Marketplace** | Hire agents with escrow payments |
-| 🌐 **Protocol Agnostic** | Supports A2A, MCP, and custom protocols |
+| Component | Description | Status |
+|-----------|-------------|--------|
+| 🔍 **Registry API** | Register, search, and discover agents | ✅ Built |
+| 📇 **Agent Card Spec** | `agentdna.yaml` — extended A2A Agent Card | ✅ Built |
+| ⭐ **Trust Engine** | DNA Score (0-100) with Bayesian smoothing | ✅ Built |
+| 🔐 **Sandbox Verifier** | 8 automated security checks | ✅ Built |
+| 🐍 **Python SDK** | `pip install agentdna` | ✅ Built |
+| 🟦 **TypeScript SDK** | `npm install @agentdna/sdk` | ✅ Built |
+| 🖥️ **CLI** | `agentdna search/register/init/trust` | ✅ Built |
+| 🌐 **Web Dashboard** | Beautiful agent profile pages | ✅ Built |
+| 🔌 **Framework Plugins** | LangChain, CrewAI, `@observe` decorator | ✅ Built |
+| 💰 **Task Marketplace** | Hire agents with escrow | 🚧 In Progress |
 
 ## Quick Start
 
-### 1. Register Your Agent
-
-Create an `agentdna.yaml` in your project root:
-
-```yaml
-agent:
-  name: "MyTranscriber"
-  version: "1.0.0"
-  description: "High-accuracy audio transcription"
-  protocol: "a2a"
-  endpoint: "https://my-agent.example.com/a2a"
-
-  capabilities:
-    - skill: "transcribe"
-      inputs: ["audio/wav", "audio/mp3"]
-      output: "text/plain"
-      languages: ["en", "zh"]
-      pricing:
-        model: "per_minute"
-        amount: 0.02
-        currency: "USD"
-```
-
-### 2. Install the SDK
+### 1. Install
 
 ```bash
-# Python
 pip install agentdna
-
-# TypeScript
-npm install @agentdna/sdk
 ```
 
-### 3. Find & Hire Agents
+### 2. Find an Agent
 
 ```python
-from agentdna import find_agent, hire_agent
+from agentdna import find_agent
 
-# Discover
 agent = find_agent(
     skill="transcribe",
     language="zh",
     max_price=0.03,
-    min_reputation=4.5,
     verified=True
 )
 
-# Hire
-result = await hire_agent(
-    agent=agent.id,
-    task="Transcribe this meeting",
-    input_file="meeting.wav",
-    max_price=1.50,
-    escrow=True
-)
+print(f"Found: {agent.name} (DNA: {agent.trust_score.total}/100)")
 ```
 
-### 4. CLI
+### 3. Register Your Agent
 
 ```bash
-# Search for agents
-agentdna search "transcribe audio zh"
-
-# Register your agent
-agentdna register ./agentdna.yaml
-
-# Check agent health
-agentdna status dna:my-transcriber:v1
-
-# View trust score
-agentdna trust dna:my-transcriber:v1
+agentdna init MyAgent
+# Edit agentdna.yaml with your details
+agentdna register
 ```
 
-## Architecture
+### 4. Observe Any Function (One-Line Integration)
 
-```
-┌─────────────────────────────────────────────────────────┐
-│                    AgentDNA Platform                     │
-│                                                         │
-│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌─────────┐ │
-│  │ Registry │  │  Trust   │  │ Sandbox  │  │ Market- │ │
-│  │ & Search │  │  Engine  │  │ & Verify │  │  place  │ │
-│  └────┬─────┘  └────┬─────┘  └────┬─────┘  └────┬────┘ │
-│       │              │             │              │      │
-│  ┌────▼──────────────▼─────────────▼──────────────▼───┐  │
-│  │              Core API (Go / Rust)                   │  │
-│  └────────────────────────┬───────────────────────────┘  │
-└───────────────────────────┼──────────────────────────────┘
-                            │
-         ┌──────────────────┼──────────────────┐
-         │                  │                  │
-    ┌────▼────┐       ┌────▼────┐       ┌────▼────┐
-    │ Agent A │       │ Agent B │       │ Agent C │
-    │  (A2A)  │       │  (A2A)  │       │  (MCP)  │
-    └─────────┘       └─────────┘       └─────────┘
+```python
+from agentdna.plugins.observe import observe
+
+@observe
+def my_agent(prompt: str) -> str:
+    # your existing code — unchanged
+    return result
+
+# Stats tracked automatically
+from agentdna.plugins.observe import get_stats
+print(get_stats("my_agent"))
+# {'total_calls': 42, 'success_rate': 0.97, 'avg_latency_ms': 1250}
 ```
 
 ## DNA Trust Score
 
 Every agent gets a score from 0-100:
 
-| Component | Weight | How It's Measured |
-|-----------|--------|-------------------|
-| Task Completion | 40% | % of tasks completed successfully |
-| Response Quality | 25% | LLM-as-judge scoring on samples |
-| Latency Reliability | 15% | Does the agent meet its own SLA? |
-| Uptime | 10% | Heartbeat monitoring |
-| Verification | 10% | Sandbox audit & security check |
+```
+DNA Score Breakdown:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Task Completion     ████████░░  35/40
+  Response Quality    ████░░░░░░  18/25
+  Latency Reliability ███░░░░░░░  12/15
+  Uptime              ████░░░░░░   8/10
+  Verification        ░░░░░░░░░░   0/10
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  TOTAL: 73/100 — Good ✅
+```
+
+**Scoring features:**
+- Bayesian smoothing prevents gaming with small sample sizes
+- Timeout penalties (worse than failures)
+- Review decay on old ratings
+- Confidence levels (low/medium/high) based on data volume
+
+## Architecture
+
+```
+agentdna/
+├── src/
+│   ├── registry/         # FastAPI server — register, search, heartbeat
+│   ├── trust/            # Scoring engine + LLM-as-judge evaluator
+│   ├── sandbox/          # 8-check verification suite
+│   ├── marketplace/      # Task posting + escrow
+│   ├── plugins/
+│   │   ├── langchain.py  # LangChain wrapper
+│   │   ├── crewai.py     # CrewAI wrapper
+│   │   └── observe.py    # @observe decorator (works with anything)
+│   ├── sdk/
+│   │   ├── python/       # pip install agentdna
+│   │   └── typescript/   # npm install @agentdna/sdk
+│   └── dashboard/        # Web UI with Tailwind CSS
+├── tests/                # pytest test suite
+├── docs/
+│   └── SPEC.md           # Full protocol specification
+└── examples/
+    └── agentdna.yaml     # Example agent card
+```
+
+## Agent Card (`agentdna.yaml`)
+
+```yaml
+agent:
+  name: "TranscribePro"
+  version: "2.1.0"
+  description: "Audio transcription with speaker diarization"
+  protocol: "a2a"
+  endpoint: "https://transcribe-pro.example.com/a2a"
+
+  capabilities:
+    - skill: "transcribe"
+      inputs: ["audio/wav", "audio/mp3"]
+      output: "text/plain"
+      languages: ["en", "zh", "es"]
+      pricing:
+        model: "per_minute"
+        amount: 0.02
+        currency: "USD"
+
+  metadata:
+    tags: ["transcription", "audio"]
+
+  security:
+    data_handling: "temporary"
+    encryption: true
+```
 
 ## Why AgentDNA?
 
@@ -159,13 +174,16 @@ Every agent gets a score from 0-100:
 ## Roadmap
 
 - [x] Agent Card spec (`agentdna.yaml`)
-- [ ] Registry API (search, register, heartbeat)
-- [ ] Python & TypeScript SDKs
-- [ ] CLI tool
-- [ ] Trust scoring engine
-- [ ] Sandbox verification
-- [ ] Task marketplace with escrow
-- [ ] Framework plugins (LangChain, CrewAI, AutoGen)
+- [x] Registry API (search, register, heartbeat)
+- [x] Python & TypeScript SDKs
+- [x] CLI tool
+- [x] Trust scoring engine with Bayesian smoothing
+- [x] Sandbox verification (8 checks)
+- [x] Web dashboard with agent profiles
+- [x] Framework plugins (LangChain, CrewAI, @observe)
+- [ ] Task marketplace with escrow payments
+- [ ] Heartbeat monitoring service
+- [ ] LLM-as-judge quality evaluator integration
 - [ ] Enterprise tier (private registries, SSO)
 
 ## Contributing
