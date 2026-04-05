@@ -37,9 +37,6 @@ jobs:
     needs: test
     runs-on: ubuntu-latest
 
-    permissions:
-      id-token: write  # Required for trusted publishing
-
     steps:
       - uses: actions/checkout@v4
 
@@ -49,11 +46,15 @@ jobs:
           python-version: "3.12"
 
       - name: Install build tools
-        run: pip install build
+        run: pip install build twine
 
       - name: Build package
         run: python -m build
         working-directory: src/sdk/python
 
       - name: Publish to PyPI
-        uses: pypa/gh-action-pypi-publish@release/v1
+        env:
+          TWINE_USERNAME: __token__
+          TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
+        run: twine upload dist/*
+        working-directory: src/sdk/python
