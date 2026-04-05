@@ -126,6 +126,21 @@ async def search_agents(
         if protocol and agent.get("protocol") != protocol:
             continue
 
+        # Filter by max_price — reject agents whose cheapest capability exceeds limit
+        if max_price is not None:
+            caps = [c for c in agent.get("capabilities", []) if c]
+            prices = [
+                c.get("pricing", {}).get("amount", 0)
+                for c in caps
+                if c.get("pricing")
+            ]
+            if prices and min(prices) > max_price:
+                continue
+
+        # Filter by verified status
+        if verified is not None and agent.get("verified", False) != verified:
+            continue
+
         results.append(agent)
 
     return {
