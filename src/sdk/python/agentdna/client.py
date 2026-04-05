@@ -57,18 +57,18 @@ class AgentDNAClient:
 
     def search(
         self,
-        skill: str = None,
-        language: str = None,
-        max_price: float = None,
-        min_reputation: float = None,
-        verified: bool = None,
-        protocol: str = None,
-        tags: list[str] = None,
+        skill: Optional[str] = None,
+        language: Optional[str] = None,
+        max_price: Optional[float] = None,
+        min_reputation: Optional[float] = None,
+        verified: Optional[bool] = None,
+        protocol: Optional[str] = None,
+        tags: Optional[list[str]] = None,
         limit: int = 10,
         offset: int = 0,
     ) -> dict:
         """Search for agents by capability."""
-        params = {"limit": limit, "offset": offset}
+        params: dict[str, str | int | float] = {"limit": limit, "offset": offset}
         if skill:
             params["skill"] = skill
         if language:
@@ -91,7 +91,7 @@ class AgentDNAClient:
         """Get the trust/reputation score for an agent."""
         return self._get(f"/api/v1/agents/{agent_id}/trust")
 
-    def submit_review(self, agent_id: str, rating: int, comment: str, task_id: str = None) -> dict:
+    def submit_review(self, agent_id: str, rating: int, comment: str, task_id: Optional[str] = None) -> dict:
         """Submit a review for an agent."""
         return self._post(
             f"/api/v1/agents/{agent_id}/reviews",

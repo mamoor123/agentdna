@@ -82,14 +82,14 @@ def _parse_agent(data: dict) -> Agent:
 
 
 def find_agent(
-    skill: str = None,
-    language: str = None,
-    max_price: float = None,
-    min_reputation: float = None,
-    verified: bool = None,
-    protocol: str = None,
-    tags: list[str] = None,
-    api_key: str = None,
+    skill: Optional[str] = None,
+    language: Optional[str] = None,
+    max_price: Optional[float] = None,
+    min_reputation: Optional[float] = None,
+    verified: Optional[bool] = None,
+    protocol: Optional[str] = None,
+    tags: Optional[list[str]] = None,
+    api_key: Optional[str] = None,
 ) -> Optional[Agent]:
     """
     Find the best agent matching your criteria.
@@ -120,16 +120,16 @@ def find_agent(
 
 
 def search_agents(
-    skill: str = None,
-    language: str = None,
-    max_price: float = None,
-    min_reputation: float = None,
-    verified: bool = None,
-    protocol: str = None,
-    tags: list[str] = None,
+    skill: Optional[str] = None,
+    language: Optional[str] = None,
+    max_price: Optional[float] = None,
+    min_reputation: Optional[float] = None,
+    verified: Optional[bool] = None,
+    protocol: Optional[str] = None,
+    tags: Optional[list[str]] = None,
     limit: int = 10,
     offset: int = 0,
-    api_key: str = None,
+    api_key: Optional[str] = None,
 ) -> AgentSearchResult:
     """
     Search for agents by capability.

@@ -52,10 +52,10 @@ class AgentDNACrew:
 
     def __init__(
         self,
-        agents: list = None,
-        tasks: list = None,
-        agent_card: dict = None,
-        api_key: str = None,
+        agents: Optional[list] = None,
+        tasks: Optional[list] = None,
+        agent_card: Optional[dict] = None,
+        api_key: Optional[str] = None,
         auto_register: bool = True,
         **crew_kwargs,
     ):
@@ -94,7 +94,7 @@ class AgentDNACrew:
         except Exception:
             pass
 
-    def kickoff(self, inputs: dict = None) -> Any:
+    def kickoff(self, inputs: Optional[dict] = None) -> Any:
         """Run the crew with AgentDNA tracking."""
         self._stats["total_kickoffs"] += 1
 
@@ -110,7 +110,7 @@ class AgentDNACrew:
             self._stats["total_errors"] += 1
             raise
 
-    async def kickoff_async(self, inputs: dict = None) -> Any:
+    async def kickoff_async(self, inputs: Optional[dict] = None) -> Any:
         """Async kickoff if supported."""
         self._stats["total_kickoffs"] += 1
 
@@ -131,9 +131,9 @@ class AgentDNACrew:
     @staticmethod
     def find_agent_for_task(
         skill: str,
-        language: str = None,
-        max_price: float = None,
-        api_key: str = None,
+        language: Optional[str] = None,
+        max_price: Optional[float] = None,
+        api_key: Optional[str] = None,
     ) -> Optional[dict]:
         """
         Find an external agent from the AgentDNA registry.

@@ -1,6 +1,7 @@
 """Task marketplace — hire agents with escrow."""
 
 import asyncio
+from typing import Optional
 
 from agentdna.client import AgentDNAClient
 from agentdna.models import TaskResult
@@ -9,14 +10,14 @@ from agentdna.models import TaskResult
 async def hire_agent(
     agent: str,
     task: str,
-    input_file: str = None,
-    input_url: str = None,
-    input_text: str = None,
-    max_price: float = None,
+    input_file: Optional[str] = None,
+    input_url: Optional[str] = None,
+    input_text: Optional[str] = None,
+    max_price: Optional[float] = None,
     currency: str = "USD",
     timeout: str = "5m",
     escrow: bool = True,
-    api_key: str = None,
+    api_key: Optional[str] = None,
     poll_interval: float = 2.0,
     max_wait_seconds: float = 600.0,
 ) -> TaskResult:

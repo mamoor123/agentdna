@@ -1,6 +1,7 @@
 """Agent registration and card management."""
 
 from pathlib import Path
+from typing import Optional
 
 import yaml
 
@@ -45,7 +46,7 @@ def _validate_card(agent: dict) -> None:
 
 def register_agent(
     path: str = "./agentdna.yaml",
-    api_key: str = None,
+    api_key: Optional[str] = None,
 ) -> dict:
     """
     Register an agent in the AgentDNA registry.
@@ -68,7 +69,7 @@ def generate_agent_card(
     description: str = "",
     protocol: str = "a2a",
     endpoint: str = "",
-    skills: list[dict] = None,
+    skills: Optional[list[dict]] = None,
     output_path: str = "./agentdna.yaml",
 ) -> str:
     """

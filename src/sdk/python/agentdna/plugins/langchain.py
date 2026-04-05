@@ -49,8 +49,8 @@ class AgentDNAWrapper:
     def __init__(
         self,
         chain: Any,
-        agent_card: dict = None,
-        api_key: str = None,
+        agent_card: Optional[dict] = None,
+        api_key: Optional[str] = None,
         auto_register: bool = True,
     ):
         self.chain = chain
@@ -136,9 +136,9 @@ class AgentDNAWrapper:
     @staticmethod
     def find_agent_for_task(
         skill: str,
-        language: str = None,
-        max_price: float = None,
-        api_key: str = None,
+        language: Optional[str] = None,
+        max_price: Optional[float] = None,
+        api_key: Optional[str] = None,
     ) -> Optional[dict]:
         """
         Find another agent from the registry that can handle a task.

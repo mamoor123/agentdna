@@ -29,7 +29,7 @@ from __future__ import annotations
 import asyncio
 import functools
 import time
-from typing import Callable
+from typing import Callable, Optional
 
 
 class ObserveConfig:
@@ -37,11 +37,11 @@ class ObserveConfig:
 
     def __init__(
         self,
-        agent_id: str = None,
-        api_key: str = None,
+        agent_id: Optional[str] = None,
+        api_key: Optional[str] = None,
         track_cost: bool = False,
         sample_rate: float = 1.0,  # 1.0 = track everything
-        tags: dict = None,
+        tags: Optional[dict] = None,
     ):
         self.agent_id = agent_id
         self.api_key = api_key
@@ -99,7 +99,7 @@ class ObserveStats:
 _stats_registry: dict[str, ObserveStats] = {}
 
 
-def get_stats(func_name: str = None) -> dict:
+def get_stats(func_name: Optional[str] = None) -> dict:
     """
     Get statistics for observed functions.
 
@@ -113,7 +113,7 @@ def get_stats(func_name: str = None) -> dict:
     return {name: stats.to_dict() for name, stats in _stats_registry.items()}
 
 
-def observe(func: Callable = None, **config_kwargs):
+def observe(func: Optional[Callable] = None, **config_kwargs):
     """
     Decorator to observe any agent function.
 
