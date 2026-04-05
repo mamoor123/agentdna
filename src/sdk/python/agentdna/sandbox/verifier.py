@@ -391,7 +391,7 @@ class AgentVerifier:
                 duration_ms=elapsed,
             )
 
-    async def _check_error_handling(self, endpoint: str, protocol: str) -> CheckResult:
+    async def _check_error_handling(self, endpoint: str, _protocol: str) -> CheckResult:
         """Check how the agent handles malformed requests."""
         start = time.time()
         try:

@@ -20,7 +20,7 @@ def load_agent_card(path: str = "./agentdna.yaml") -> dict:
     if not file_path.exists():
         raise FileNotFoundError(f"Agent card not found: {path}")
 
-    with open(file_path) as f:
+    with open(file_path, encoding="utf-8") as f:
         data = yaml.safe_load(f)
 
     if not data or "agent" not in data:
@@ -116,7 +116,7 @@ def generate_agent_card(
     }
 
     output = Path(output_path)
-    with open(output, "w") as f:
+    with open(output, "w", encoding="utf-8") as f:
         yaml.dump(card, f, default_flow_style=False, sort_keys=False, allow_unicode=True)
 
     return str(output.resolve())
