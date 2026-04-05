@@ -38,6 +38,10 @@ def _parse_agent(data: dict) -> Agent:
             verification_bonus=data.get("verification_bonus", 0),
         )
 
+    # Safe nested access — handles None values at any level
+    metadata = data.get("metadata") or {}
+    owner = data.get("owner") or {}
+
     return Agent(
         id=data.get("id", data.get("agent_id", "")),
         name=data.get("name", ""),
@@ -47,10 +51,10 @@ def _parse_agent(data: dict) -> Agent:
         endpoint=data.get("endpoint", ""),
         capabilities=capabilities,
         trust_score=trust,
-        tags=data.get("metadata", {}).get("tags", []),
+        tags=metadata.get("tags", []),
         verified=data.get("verified", False),
-        owner_name=data.get("owner", {}).get("name", ""),
-        repository=data.get("metadata", {}).get("repository", ""),
+        owner_name=owner.get("name", ""),
+        repository=metadata.get("repository", ""),
     )
 
 
