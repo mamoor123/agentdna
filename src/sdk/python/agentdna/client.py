@@ -34,8 +34,8 @@ class AgentDNAClient:
         resp.raise_for_status()
         return resp.json()
 
-    def _post(self, path: str, data: Optional[dict] = None) -> dict:
-        resp = self._client.post(path, json=data)
+    def _post(self, path: str, payload: Optional[dict] = None) -> dict:
+        resp = self._client.post(path, json=payload)
         resp.raise_for_status()
         return resp.json()
 
@@ -43,7 +43,7 @@ class AgentDNAClient:
 
     def register(self, agent_card: dict) -> dict:
         """Register an agent in the registry."""
-        return self._post("/api/v1/agents", data=agent_card)
+        return self._post("/api/v1/agents", payload=agent_card)
 
     def get_agent(self, agent_id: str) -> dict:
         """Get agent details by DNA ID."""
@@ -95,14 +95,14 @@ class AgentDNAClient:
         """Submit a review for an agent."""
         return self._post(
             f"/api/v1/agents/{agent_id}/reviews",
-            data={"rating": rating, "comment": comment, "task_id": task_id},
+            payload={"rating": rating, "comment": comment, "task_id": task_id},
         )
 
     # --- Marketplace ---
 
     def create_task(self, agent_id: str, task: dict) -> dict:
         """Create a task for an agent (hire them)."""
-        return self._post(f"/api/v1/agents/{agent_id}/tasks", data=task)
+        return self._post(f"/api/v1/agents/{agent_id}/tasks", payload=task)
 
     def get_task(self, task_id: str) -> dict:
         """Get task status and result."""
