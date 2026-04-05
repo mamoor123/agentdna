@@ -89,14 +89,6 @@ async def list_agents(limit: int = 20, offset: int = 0):
     return {"agents": agents, "total": len(AGENTS)}
 
 
-@app.get("/api/v1/agents/{agent_id}")
-async def get_agent(agent_id: str):
-    """Get agent details."""
-    if agent_id not in AGENTS:
-        raise HTTPException(404, f"Agent not found: {agent_id}")
-    return AGENTS[agent_id]
-
-
 @app.get("/api/v1/agents/search")
 async def search_agents(
     skill: str = None,
@@ -195,6 +187,14 @@ async def search_agents(
             "verified": verified,
         },
     }
+
+
+@app.get("/api/v1/agents/{agent_id}")
+async def get_agent(agent_id: str):
+    """Get agent details."""
+    if agent_id not in AGENTS:
+        raise HTTPException(404, f"Agent not found: {agent_id}")
+    return AGENTS[agent_id]
 
 
 # --- Trust ---

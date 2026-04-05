@@ -5,6 +5,12 @@ from typing import Optional
 from agentdna.client import AgentDNAClient
 from agentdna.models import Agent, AgentSearchResult, Capability, Pricing, TrustScore
 
+# Fields accepted by TrustScore dataclass (ignore extra keys from server)
+_TRUST_FIELDS = {"total", "task_completion", "response_quality",
+                 "latency_reliability", "uptime_score", "verification_bonus"}
+# Fields accepted by Pricing dataclass
+_PRICING_FIELDS = {"model", "amount", "currency", "free_tier"}
+
 
 def _parse_agent(data: dict) -> Agent:
     """Parse API response into Agent model."""
@@ -14,7 +20,8 @@ def _parse_agent(data: dict) -> Agent:
             continue
         pricing = None
         if cap.get("pricing"):
-            pricing = Pricing(**cap["pricing"])
+            pricing_data = {k: v for k, v in cap["pricing"].items() if k in _PRICING_FIELDS}
+            pricing = Pricing(**pricing_data)
         capabilities.append(
             Capability(
                 skill=cap.get("skill", ""),
@@ -28,7 +35,8 @@ def _parse_agent(data: dict) -> Agent:
 
     trust = None
     if data.get("trust_score"):
-        trust = TrustScore(**data["trust_score"])
+        ts_data = {k: v for k, v in data["trust_score"].items() if k in _TRUST_FIELDS}
+        trust = TrustScore(**ts_data)
     elif data.get("trust_total") is not None:
         # Server returns trust fields with trust_ prefix (flat structure)
         trust = TrustScore(
