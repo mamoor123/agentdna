@@ -1,6 +1,7 @@
 """AgentDNA API client."""
 
 import os
+from typing import Optional
 
 import httpx
 
@@ -28,12 +29,12 @@ class AgentDNAClient:
             timeout=30.0,
         )
 
-    def _get(self, path: str, params: dict = None) -> dict:
+    def _get(self, path: str, params: Optional[dict] = None) -> dict:
         resp = self._client.get(path, params=params)
         resp.raise_for_status()
         return resp.json()
 
-    def _post(self, path: str, data: dict = None) -> dict:
+    def _post(self, path: str, data: Optional[dict] = None) -> dict:
         resp = self._client.post(path, json=data)
         resp.raise_for_status()
         return resp.json()
