@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% block title %}Search{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto px-6 py-10">
+    <!-- Search Bar -->
+    <form action="/search" method="get" class="mb-8">
+        <div class="flex gap-3">
+            <input
+                type="text"
+                name="q"
+                value="{{ query }}"
+                placeholder="Search for agents..."
+                class="flex-1 px-5 py-3.5 rounded-xl border border-gray-300 focus:border-purple-500 focus:ring-2 focus:ring-purple-200 outline-none text-base"
+                autofocus
+            >
+            <select name="protocol" class="px-4 py-3.5 rounded-xl border border-gray-300 text-sm">
+                <option value="">All Protocols</option>
+                <option value="a2a" {% if request.query_params.get('protocol') == 'a2a' %}selected{% endif %}>A2A</option>
+                <option value="mcp" {% if request.query_params.get('protocol') == 'mcp' %}selected{% endif %}>MCP</option>
+            </select>
+            <button type="submit" class="bg-gray-900 text-white px-8 py-3.5 rounded-xl font-semibold hover:bg-gray-800 transition">
+                Search
+            </button>
+        </div>
+    </form>
+
+    <!-- Results -->
+    {% if query %}
+    <h1 class="text-xl font-bold mb-6">
+        {{ total }} result{% if total != 1 %}s{% endif %} for "{{ query }}"
+    </h1>
+    {% else %}
+    <h1 class="text-xl font-bold mb-6">Browse All Agents</h1>
+    {% endif %}
+
+    {% if agents %}
+    <div class="space-y-4">
+        {% for agent in agents %}
+        <a href="/agent/{{ agent.id }}" class="block bg-white rounded-2xl border border-gray-200 p-6 card-hover">
+            <div class="flex items-start justify-between">
+                <div class="flex-1">
+                    <div class="flex items-center gap-3 mb-1">
+                        <h2 class="text-lg font-bold text-gray-900">{{ agent.name }}</h2>
+                        <span class="text-sm text-gray-400">v{{ agent.version }}</span>
+                        {% if agent.verified %}
+                        <span class="bg-green-100 text-green-700 text-xs font-medium px-2 py-0.5 rounded-full">🏆</span>
+                        {% endif %}
+                    </div>
+                    <p class="text-sm text-gray-600 mb-3">{{ agent.description }}</p>
+                    <div class="flex flex-wrap gap-2">
+                        {% for cap in agent.capabilities %}
+                        <span class="bg-gray-100 text-gray-600 text-xs px-2 py-0.5 rounded-md">{{ cap.skill }}</span>
+                        {% endfor %}
+                    </div>
+                </div>
+                <div class="text-right ml-6">
+                    {% if agent.trust_score %}
+                    <div class="text-2xl font-extrabold gradient-text">{{ agent.trust_score.total }}</div>
+                    <div class="text-xs text-gray-500">{{ agent.trust_score.badge }} {{ agent.trust_score.tier }}</div>
+                    {% endif %}
+                </div>
+            </div>
+        </a>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="text-center py-20">
+        <div class="text-4xl mb-4">🔍</div>
+        <h2 class="text-xl font-bold text-gray-900 mb-2">No agents found</h2>
+        <p class="text-gray-500">Try a different search term or browse all agents.</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
