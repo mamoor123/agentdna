@@ -50,7 +50,8 @@ def search(query, language, max_price, min_trust, verified, protocol, limit, out
 
     if output_json:
         import json
-        click.echo(json.dumps([vars(a) for a in results.agents], indent=2, default=str))
+        from dataclasses import asdict
+        click.echo(json.dumps([asdict(a) for a in results.agents], indent=2, default=str))
         return
 
     if not results.agents:

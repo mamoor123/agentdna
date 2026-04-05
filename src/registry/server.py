@@ -67,7 +67,9 @@ async def register_agent(card: AgentCard):
     agent = card.agent
     name = agent.get("name", "").lower().replace(" ", "-")
     version = agent.get("version", "1.0.0")
-    agent_id = f"dna:{name}:v{version.split('.')[0]}"
+    # Use full version in ID to prevent collisions between minor/patch versions
+    safe_version = version.replace(":", "-")
+    agent_id = f"dna:{name}:v{safe_version}"
 
     AGENTS[agent_id] = {
         "id": agent_id,
@@ -103,10 +105,12 @@ async def search_agents(
     min_reputation: float = None,
     verified: bool = None,
     protocol: str = None,
+    tags: str = None,
     limit: int = 10,
     offset: int = 0,
 ):
     """Search for agents by capability."""
+    tag_list = [t.strip() for t in tags.split(",") if t.strip()] if tags else []
     results = []
 
     for agent_id, agent in AGENTS.items():
@@ -125,6 +129,12 @@ async def search_agents(
         # Filter by protocol
         if protocol and agent.get("protocol") != protocol:
             continue
+
+        # Filter by tags — agent must have ALL requested tags
+        if tag_list:
+            agent_tags = agent.get("metadata", {}).get("tags", [])
+            if not all(t in agent_tags for t in tag_list):
+                continue
 
         # Filter by max_price — reject agents whose cheapest capability exceeds limit
         if max_price is not None:
@@ -176,7 +186,14 @@ async def search_agents(
     return {
         "agents": results[offset:offset + limit],
         "total": len(results),
-        "query": {"skill": skill, "language": language, "protocol": protocol},
+        "query": {
+            "skill": skill,
+            "language": language,
+            "protocol": protocol,
+            "max_price": max_price,
+            "min_reputation": min_reputation,
+            "verified": verified,
+        },
     }
 
 

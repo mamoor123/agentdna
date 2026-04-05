@@ -18,6 +18,7 @@ async def hire_agent(
     escrow: bool = True,
     api_key: str = None,
     poll_interval: float = 2.0,
+    max_wait_seconds: float = 600.0,
 ) -> TaskResult:
     """
     Hire an agent to complete a task.
@@ -59,8 +60,9 @@ async def hire_agent(
         )
         task_id = result["task_id"]
 
-        # Poll for completion
-        while True:
+        # Poll for completion with timeout
+        elapsed = 0.0
+        while elapsed < max_wait_seconds:
             status = await loop.run_in_executor(
                 None, lambda: client.get_task(task_id)
             )
@@ -79,6 +81,15 @@ async def hire_agent(
                 )
 
             await asyncio.sleep(poll_interval)
+            elapsed += poll_interval
+
+        # Timed out waiting
+        return TaskResult(
+            task_id=task_id,
+            agent_id=agent,
+            status="failed",
+            error=f"Timed out after {max_wait_seconds}s waiting for task completion",
+        )
     finally:
         client.close()
 

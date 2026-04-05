@@ -174,13 +174,19 @@ class QualityEvaluator:
 
     def _parse_response(self, raw: str) -> EvaluationResult:
         """Parse LLM response into EvaluationResult."""
-        # Strip markdown code blocks if present
+        import re
+
         cleaned = raw.strip()
-        if cleaned.startswith("```"):
-            cleaned = "\n".join(cleaned.split("\n")[1:])
-        if cleaned.endswith("```"):
-            cleaned = "\n".join(cleaned.split("\n")[:-1])
-        cleaned = cleaned.strip()
+
+        # Strip markdown code blocks (```json ... ``` or ``` ... ```)
+        code_block = re.search(r"```(?:json)?\s*\n?(.*?)\n?\s*```", cleaned, re.DOTALL)
+        if code_block:
+            cleaned = code_block.group(1).strip()
+        else:
+            # Fallback: find the first JSON object in the response
+            json_match = re.search(r"\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}", cleaned, re.DOTALL)
+            if json_match:
+                cleaned = json_match.group(0)
 
         try:
             data = json.loads(cleaned)

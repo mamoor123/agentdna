@@ -169,6 +169,7 @@ export async function hireAgent(params: {
   escrow?: boolean;
   apiKey?: string;
   pollIntervalMs?: number;
+  maxWaitMs?: number;
 }): Promise<TaskResult> {
   const client = new AgentDNAClient({ apiKey: params.apiKey });
 
@@ -184,13 +185,25 @@ export async function hireAgent(params: {
 
   const { taskId } = await client.createTask(params.agentId, taskPayload);
 
-  // Poll for completion
+  // Poll for completion with timeout
   const interval = params.pollIntervalMs || 2000;
-  while (true) {
+  const maxWait = params.maxWaitMs || 600_000; // 10 minutes default
+  let elapsed = 0;
+
+  while (elapsed < maxWait) {
     const result = await client.getTask(taskId);
     if (["completed", "failed", "refunded"].includes(result.status)) {
       return result;
     }
     await new Promise((r) => setTimeout(r, interval));
+    elapsed += interval;
   }
+
+  // Timed out
+  return {
+    taskId,
+    agentId: params.agentId,
+    status: "failed",
+    error: `Timed out after ${maxWait}ms waiting for task completion`,
+  };
 }
