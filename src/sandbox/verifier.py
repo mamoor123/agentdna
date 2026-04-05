@@ -18,11 +18,8 @@ Verification Levels:
 from __future__ import annotations
 
 import time
-import hashlib
-import json
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Optional
 
 import httpx
 
