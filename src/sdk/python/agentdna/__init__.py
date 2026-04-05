@@ -1,54 +1,85 @@
 """
-🧬 AgentDNA — DNS for AI Agents
+🧬 AgentDNA — Sentry for AI Agents
 
-Discovery, Trust & Marketplace for AI agents.
-The missing layer between A2A and your agents.
+One-line observability for any Python agent.
+No framework required. No API key. No network calls.
 
 Usage:
-    from agentdna import find_agent, hire_agent_sync, register_agent
+    from agentdna import observe, get_stats
 
-    # Find an agent
-    agent = find_agent(skill="transcribe", language="zh", max_price=0.03)
+    @observe
+    def my_agent(prompt):
+        return llm.call(prompt)
 
-    # Hire an agent (sync)
-    result = hire_agent_sync(agent=agent.id, task="Transcribe this", input_file="audio.wav")
+    # Check stats anytime (persists across restarts)
+    print(get_stats())
 
-    # Register your agent
-    register_agent("./agentdna.yaml")
+    # Or use the CLI:
+    #   agentdna stats
+    #   agentdna stats my_agent
 """
 
-from agentdna.models import Agent, AgentSearchResult, Capability, Pricing, TrustScore, TaskResult
-from agentdna.registry import register_agent, load_agent_card, generate_agent_card
-from agentdna.discovery import find_agent, search_agents
-from agentdna.marketplace import hire_agent, hire_agent_sync
+__version__ = "0.2.0"
 
-__version__ = "0.1.0"
+# ⭐ Primary exports — zero dependencies (uses only stdlib sqlite3)
+from agentdna.plugins.observe import observe, get_stats, reset_stats, export_stats
+
+# Everything else is lazy-imported to avoid requiring httpx/PyYAML
+# for users who only want observability.
+
+
+def __getattr__(name: str):
+    """Lazy imports — only load when actually used."""
+    _lazy = {
+        # Models
+        "Agent": ("agentdna.models", "Agent"),
+        "AgentSearchResult": ("agentdna.models", "AgentSearchResult"),
+        "Capability": ("agentdna.models", "Capability"),
+        "Pricing": ("agentdna.models", "Pricing"),
+        "TrustScore": ("agentdna.models", "TrustScore"),
+        "TaskResult": ("agentdna.models", "TaskResult"),
+        # Registry
+        "register_agent": ("agentdna.registry", "register_agent"),
+        "load_agent_card": ("agentdna.registry", "load_agent_card"),
+        "generate_agent_card": ("agentdna.registry", "generate_agent_card"),
+        # Discovery
+        "find_agent": ("agentdna.discovery", "find_agent"),
+        "search_agents": ("agentdna.discovery", "search_agents"),
+        # Marketplace
+        "hire_agent": ("agentdna.marketplace", "hire_agent"),
+        "hire_agent_sync": ("agentdna.marketplace", "hire_agent_sync"),
+        # Client
+        "AgentDNAClient": ("agentdna.client", "AgentDNAClient"),
+    }
+
+    if name in _lazy:
+        module_path, attr_name = _lazy[name]
+        from importlib import import_module
+        mod = import_module(module_path)
+        return getattr(mod, attr_name)
+
+    raise AttributeError(f"module 'agentdna' has no attribute {name!r}")
+
+
 __all__ = [
-    # Client (lazy import to avoid httpx requirement at import time)
+    # ⭐ Core — observability (zero dependencies)
+    "observe",
+    "get_stats",
+    "reset_stats",
+    "export_stats",
+    # Everything else (lazy, requires httpx/PyYAML)
     "AgentDNAClient",
-    # Models
     "Agent",
     "AgentSearchResult",
     "Capability",
     "Pricing",
     "TrustScore",
     "TaskResult",
-    # Registry
     "register_agent",
     "load_agent_card",
     "generate_agent_card",
-    # Discovery
     "find_agent",
     "search_agents",
-    # Marketplace
     "hire_agent",
     "hire_agent_sync",
 ]
-
-
-def __getattr__(name: str):
-    """Lazy import for AgentDNAClient to avoid requiring httpx at import time."""
-    if name == "AgentDNAClient":
-        from agentdna.client import AgentDNAClient
-        return AgentDNAClient
-    raise AttributeError(f"module 'agentdna' has no attribute {name!r}")

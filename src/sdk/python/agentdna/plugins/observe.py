@@ -1,11 +1,11 @@
 """
-AgentDNA Observe Decorator — One-line integration for any agent
+AgentDNA Observe — Sentry for AI Agents
 
-Drop-in decorator that works with ANY Python agent code.
-No framework required.
+One-line decorator that works with ANY Python agent code.
+No framework required. Stats persist to local SQLite.
 
 Usage:
-    from agentdna.plugins.observe import observe
+    from agentdna import observe, get_stats
 
     @observe
     def my_agent(prompt):
@@ -13,104 +13,341 @@ Usage:
         return result
 
     # Or with options:
-    @observe(agent_id="dna:my-agent:v1", track_cost=True)
+    @observe(name="my-agent", tags={"version": "2.0"})
     async def my_async_agent(prompt):
         return await agent.run(prompt)
 
+    # View stats anytime (even after restart)
+    print(get_stats("my_agent"))
+
 What it tracks:
 - Call count and success/failure rate
-- Latency per call
+- Latency per call (avg, p50, p95, p99)
 - Input/output sizes
 - Error types and frequency
+- Timestamp of last call
+
+Data is stored locally in ~/.agentdna/observe.db (SQLite).
+No network calls. No API key needed. Works offline.
 """
 
 from __future__ import annotations
 
 import asyncio
 import functools
+import json
+import os
+import sqlite3
+import statistics
 import time
-from typing import Callable, Optional
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any, Callable, Optional
 
+
+# --- SQLite Storage ---
+
+def _get_db_path() -> Path:
+    """Get path to the local SQLite database."""
+    custom = os.environ.get("AGENTDNA_DB_PATH")
+    if custom:
+        return Path(custom)
+    return Path.home() / ".agentdna" / "observe.db"
+
+
+def _get_db() -> sqlite3.Connection:
+    """Get or create the SQLite connection with WAL mode for performance."""
+    path = _get_db_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    conn = sqlite3.connect(str(path))
+    conn.execute("PRAGMA journal_mode=WAL")
+    conn.execute("PRAGMA synchronous=NORMAL")
+    _init_db(conn)
+    return conn
+
+
+def _init_db(conn: sqlite3.Connection):
+    """Create tables if they don't exist."""
+    conn.executescript("""
+        CREATE TABLE IF NOT EXISTS functions (
+            name TEXT PRIMARY KEY,
+            first_seen TEXT NOT NULL,
+            last_seen TEXT NOT NULL,
+            total_calls INTEGER DEFAULT 0,
+            successful_calls INTEGER DEFAULT 0,
+            failed_calls INTEGER DEFAULT 0,
+            total_latency_ms REAL DEFAULT 0,
+            total_input_chars INTEGER DEFAULT 0,
+            total_output_chars INTEGER DEFAULT 0,
+            errors TEXT DEFAULT '{}'
+        );
+
+        CREATE TABLE IF NOT EXISTS calls (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            func_name TEXT NOT NULL,
+            timestamp TEXT NOT NULL,
+            success INTEGER NOT NULL,
+            latency_ms REAL NOT NULL,
+            input_chars INTEGER DEFAULT 0,
+            output_chars INTEGER DEFAULT 0,
+            error_type TEXT,
+            tags TEXT DEFAULT '{}'
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_calls_func_time
+            ON calls(func_name, timestamp);
+    """)
+
+
+def _upsert_function(conn: sqlite3.Connection, name: str, success: bool,
+                     latency_ms: float, input_chars: int, output_chars: int,
+                     error_type: Optional[str] = None):
+    """Update aggregate stats for a function."""
+    now = datetime.now(timezone.utc).isoformat()
+
+    # Get current errors
+    row = conn.execute("SELECT errors FROM functions WHERE name = ?", (name,)).fetchone()
+    if row:
+        errors = json.loads(row[0])
+        if error_type:
+            errors[error_type] = errors.get(error_type, 0) + 1
+
+        conn.execute("""
+            UPDATE functions SET
+                last_seen = ?,
+                total_calls = total_calls + 1,
+                successful_calls = successful_calls + ?,
+                failed_calls = failed_calls + ?,
+                total_latency_ms = total_latency_ms + ?,
+                total_input_chars = total_input_chars + ?,
+                total_output_chars = total_output_chars + ?,
+                errors = ?
+            WHERE name = ?
+        """, (now, 1 if success else 0, 0 if success else 1,
+              latency_ms, input_chars, output_chars,
+              json.dumps(errors), name))
+    else:
+        errors = {error_type: 1} if error_type else {}
+        conn.execute("""
+            INSERT INTO functions
+                (name, first_seen, last_seen, total_calls, successful_calls,
+                 failed_calls, total_latency_ms, total_input_chars, total_output_chars, errors)
+            VALUES (?, ?, ?, 1, ?, ?, ?, ?, ?, ?)
+        """, (name, now, now,
+              1 if success else 0, 0 if success else 1,
+              latency_ms, input_chars, output_chars,
+              json.dumps(errors)))
+
+
+def _record_call(conn: sqlite3.Connection, name: str, success: bool,
+                latency_ms: float, input_chars: int, output_chars: int,
+                error_type: Optional[str] = None, tags: Optional[dict] = None):
+    """Record an individual call for percentile calculations."""
+    conn.execute("""
+        INSERT INTO calls (func_name, timestamp, success, latency_ms,
+                          input_chars, output_chars, error_type, tags)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    """, (name, datetime.now(timezone.utc).isoformat(),
+          1 if success else 0, latency_ms,
+          input_chars, output_chars, error_type,
+          json.dumps(tags or {})))
+
+
+# --- In-Memory Cache (for hot path performance) ---
+
+class _HotCache:
+    """In-memory cache that batches writes to SQLite."""
+
+    def __init__(self, flush_every_n: int = 10):
+        self._calls: list[tuple] = []
+        self._flush_every = flush_every_n
+        self._conn: Optional[sqlite3.Connection] = None
+
+    def _ensure_conn(self):
+        if self._conn is None:
+            self._conn = _get_db()
+        return self._conn
+
+    def record(self, name: str, success: bool, latency_ms: float,
+               input_chars: int, output_chars: int,
+               error_type: Optional[str] = None, tags: Optional[dict] = None):
+        """Record a call. Flushes to SQLite periodically."""
+        self._calls.append((name, success, latency_ms, input_chars, output_chars, error_type, tags))
+
+        if len(self._calls) >= self._flush_every:
+            self.flush()
+
+    def flush(self):
+        """Write all buffered calls to SQLite."""
+        if not self._calls:
+            return
+
+        conn = self._ensure_conn()
+        try:
+            for call in self._calls:
+                name, success, latency_ms, input_chars, output_chars, error_type, tags = call
+                _upsert_function(conn, name, success, latency_ms, input_chars, output_chars, error_type)
+                _record_call(conn, name, success, latency_ms, input_chars, output_chars, error_type, tags)
+            conn.commit()
+        except Exception:
+            pass  # Don't let DB errors break the observed function
+        self._calls.clear()
+
+    def close(self):
+        """Flush and close."""
+        self.flush()
+        if self._conn:
+            self._conn.close()
+            self._conn = None
+
+
+# Global hot cache
+_cache = _HotCache(flush_every_n=5)
+
+
+# --- Stats Retrieval ---
+
+def get_stats(func_name: Optional[str] = None) -> dict:
+    """
+    Get statistics for observed functions from SQLite.
+
+    Args:
+        func_name: Specific function name, or None for all functions.
+
+    Returns:
+        Dict with stats. Example:
+            {
+                "total_calls": 42,
+                "success_rate": 0.97,
+                "avg_latency_ms": 1250.5,
+                "p50_latency_ms": 980.0,
+                "p95_latency_ms": 2100.0,
+                "p99_latency_ms": 3500.0,
+                "error_types": {"ValueError": 1, "Timeout": 1},
+                "first_seen": "2026-04-05T...",
+                "last_seen": "2026-04-05T..."
+            }
+    """
+    # Flush any pending writes first
+    _cache.flush()
+
+    conn = _get_db()
+
+    if func_name:
+        return _get_stats_for(conn, func_name)
+    else:
+        rows = conn.execute("SELECT name FROM functions ORDER BY last_seen DESC").fetchall()
+        return {row[0]: _get_stats_for(conn, row[0]) for row in rows}
+
+
+def _get_stats_for(conn: sqlite3.Connection, func_name: str) -> dict:
+    """Get detailed stats for a single function."""
+    row = conn.execute(
+        "SELECT * FROM functions WHERE name = ?", (func_name,)
+    ).fetchone()
+
+    if not row:
+        return {}
+
+    # row: name(0), first_seen(1), last_seen(2), total_calls(3),
+    #      successful_calls(4), failed_calls(5), total_latency_ms(6),
+    #      total_input_chars(7), total_output_chars(8), errors(9)
+    total = row[3]
+    success_rate = row[4] / total if total > 0 else 0
+    avg_latency = row[6] / total if total > 0 else 0
+
+    # Get latency percentiles from calls table
+    latencies = conn.execute(
+        "SELECT latency_ms FROM calls WHERE func_name = ? ORDER BY latency_ms",
+        (func_name,)
+    ).fetchall()
+
+    lat_values = [l[0] for l in latencies]
+
+    def percentile(values: list[float], p: int) -> float:
+        if not values:
+            return 0
+        idx = int(len(values) * p / 100)
+        return values[min(idx, len(values) - 1)]
+
+    return {
+        "total_calls": total,
+        "successful_calls": row[4],
+        "failed_calls": row[5],
+        "success_rate": round(success_rate, 4),
+        "avg_latency_ms": round(avg_latency, 2),
+        "p50_latency_ms": round(percentile(lat_values, 50), 2),
+        "p95_latency_ms": round(percentile(lat_values, 95), 2),
+        "p99_latency_ms": round(percentile(lat_values, 99), 2),
+        "total_input_chars": row[7],
+        "total_output_chars": row[8],
+        "error_types": json.loads(row[9]) if row[9] else {},
+        "first_seen": row[1],
+        "last_seen": row[2],
+    }
+
+
+def reset_stats(func_name: Optional[str] = None):
+    """
+    Clear stats for a function (or all functions if name is None).
+
+    Warning: This permanently deletes the data.
+    """
+    _cache.flush()
+    conn = _get_db()
+    if func_name:
+        conn.execute("DELETE FROM functions WHERE name = ?", (func_name,))
+        conn.execute("DELETE FROM calls WHERE func_name = ?", (func_name,))
+    else:
+        conn.execute("DELETE FROM functions")
+        conn.execute("DELETE FROM calls")
+    conn.commit()
+
+
+def export_stats(func_name: Optional[str] = None, format: str = "json") -> str:
+    """
+    Export stats as JSON or CSV.
+
+    Args:
+        func_name: Specific function or None for all.
+        format: "json" or "csv"
+    """
+    stats = get_stats(func_name)
+
+    if format == "json":
+        return json.dumps(stats, indent=2, default=str)
+
+    if format == "csv":
+        if not stats:
+            return ""
+        # Flatten for CSV
+        lines = ["name,total_calls,success_rate,avg_latency_ms,p95_latency_ms,failed_calls,error_types"]
+        items = stats.items() if isinstance(stats, dict) and "total_calls" not in stats else [(func_name or "unknown", stats)]
+        for name, s in items:
+            lines.append(f"{name},{s.get('total_calls',0)},{s.get('success_rate',0)},{s.get('avg_latency_ms',0)},{s.get('p95_latency_ms',0)},{s.get('failed_calls',0)},\"{s.get('error_types',{})}\"")
+        return "\n".join(lines)
+
+    return json.dumps(stats, indent=2, default=str)
+
+
+# --- Decorator ---
 
 class ObserveConfig:
     """Configuration for the observe decorator."""
 
     def __init__(
         self,
+        name: Optional[str] = None,
         agent_id: Optional[str] = None,
-        api_key: Optional[str] = None,
         track_cost: bool = False,
-        sample_rate: float = 1.0,  # 1.0 = track everything
+        sample_rate: float = 1.0,
         tags: Optional[dict] = None,
     ):
-        self.agent_id = agent_id
-        self.api_key = api_key
+        self.name = name
+        self.agent_id = agent_id  # kept for backwards compat
         self.track_cost = track_cost
         self.sample_rate = sample_rate
         self.tags = tags or {}
-
-
-class ObserveStats:
-    """Accumulates statistics for an observed function."""
-
-    def __init__(self):
-        self.total_calls = 0
-        self.successful_calls = 0
-        self.failed_calls = 0
-        self.total_latency_ms = 0.0
-        self.total_input_chars = 0
-        self.total_output_chars = 0
-        self.errors: dict[str, int] = {}  # error_type -> count
-
-    def record_success(self, latency_ms: float, input_size: int = 0, output_size: int = 0):
-        self.total_calls += 1
-        self.successful_calls += 1
-        self.total_latency_ms += latency_ms
-        self.total_input_chars += input_size
-        self.total_output_chars += output_size
-
-    def record_failure(self, latency_ms: float, error: Exception):
-        self.total_calls += 1
-        self.failed_calls += 1
-        self.total_latency_ms += latency_ms
-        error_type = type(error).__name__
-        self.errors[error_type] = self.errors.get(error_type, 0) + 1
-
-    def to_dict(self) -> dict:
-        avg_latency = (
-            self.total_latency_ms / self.total_calls if self.total_calls > 0 else 0
-        )
-        return {
-            "total_calls": self.total_calls,
-            "successful_calls": self.successful_calls,
-            "failed_calls": self.failed_calls,
-            "success_rate": (
-                self.successful_calls / self.total_calls if self.total_calls > 0 else 0
-            ),
-            "avg_latency_ms": round(avg_latency, 2),
-            "total_latency_ms": round(self.total_latency_ms, 2),
-            "total_input_chars": self.total_input_chars,
-            "total_output_chars": self.total_output_chars,
-            "error_types": self.errors,
-        }
-
-
-# Global stats registry
-_stats_registry: dict[str, ObserveStats] = {}
-
-
-def get_stats(func_name: Optional[str] = None) -> dict:
-    """
-    Get statistics for observed functions.
-
-    Example:
-        stats = get_stats("my_agent")
-        print(f"Success rate: {stats['success_rate']:.1%}")
-    """
-    if func_name:
-        stats = _stats_registry.get(func_name)
-        return stats.to_dict() if stats else {}
-    return {name: stats.to_dict() for name, stats in _stats_registry.items()}
 
 
 def observe(func: Optional[Callable] = None, **config_kwargs):
@@ -122,16 +359,17 @@ def observe(func: Optional[Callable] = None, **config_kwargs):
         def my_agent(prompt): ...
 
     Or with options:
-        @observe(agent_id="dna:my-agent:v1", track_cost=True)
+        @observe(name="my-agent", tags={"version": "2.0"})
         def my_agent(prompt): ...
+
+    Data persists to ~/.agentdna/observe.db (SQLite).
+    No network calls. Works offline.
     """
     if func is None:
-        # Called with arguments: @observe(...)
         return functools.partial(observe, **config_kwargs)
 
     config = ObserveConfig(**config_kwargs)
-    stats = ObserveStats()
-    _stats_registry[func.__name__] = stats
+    func_name = config.name or func.__name__
 
     if asyncio.iscoroutinefunction(func):
         @functools.wraps(func)
@@ -143,14 +381,14 @@ def observe(func: Optional[Callable] = None, **config_kwargs):
                 result = await func(*args, **kwargs)
                 elapsed = (time.time() - start) * 1000
                 output_size = len(str(result)) if result else 0
-                stats.record_success(elapsed, input_size, output_size)
+                _cache.record(func_name, True, elapsed, input_size, output_size, tags=config.tags)
                 return result
             except Exception as e:
                 elapsed = (time.time() - start) * 1000
-                stats.record_failure(elapsed, e)
+                _cache.record(func_name, False, elapsed, input_size, 0,
+                             error_type=type(e).__name__, tags=config.tags)
                 raise
 
-        async_wrapper._agentdna_stats = stats
         async_wrapper._agentdna_config = config
         return async_wrapper
     else:
@@ -163,13 +401,13 @@ def observe(func: Optional[Callable] = None, **config_kwargs):
                 result = func(*args, **kwargs)
                 elapsed = (time.time() - start) * 1000
                 output_size = len(str(result)) if result else 0
-                stats.record_success(elapsed, input_size, output_size)
+                _cache.record(func_name, True, elapsed, input_size, output_size, tags=config.tags)
                 return result
             except Exception as e:
                 elapsed = (time.time() - start) * 1000
-                stats.record_failure(elapsed, e)
+                _cache.record(func_name, False, elapsed, input_size, 0,
+                             error_type=type(e).__name__, tags=config.tags)
                 raise
 
-        sync_wrapper._agentdna_stats = stats
         sync_wrapper._agentdna_config = config
         return sync_wrapper
