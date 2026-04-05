@@ -298,7 +298,7 @@ class TrustScorer:
 
         # Weighted average
         total_weight = sum(weights)
-        blended = sum(s * w for s, w in zip(scores, weights)) / total_weight
+        blended = sum(s * w for s, w in zip(scores, weights, strict=True)) / total_weight
 
         return int((blended / 100) * max_points)
 
