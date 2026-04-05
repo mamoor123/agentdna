@@ -1,7 +1,6 @@
 """AgentDNA API client."""
 
 import os
-from typing import Optional
 
 import httpx
 
@@ -24,7 +23,7 @@ class AgentDNAClient:
             headers={
                 "Authorization": f"Bearer {self.api_key}" if self.api_key else "",
                 "Content-Type": "application/json",
-                "User-Agent": f"agentdna-python/{__import__('agentdna').__version__}",
+                "User-Agent": "agentdna-python/0.1.0",
             },
             timeout=30.0,
         )
