@@ -19,7 +19,7 @@ Usage:
     #   agentdna stats my_agent
 """
 
-__version__ = "0.2.0"
+__version__ = "0.2.1"
 
 # ⭐ Primary exports — zero dependencies (uses only stdlib sqlite3)
 from agentdna.plugins.observe import observe, get_stats, reset_stats, export_stats
