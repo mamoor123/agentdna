@@ -29,8 +29,21 @@ def _parse_agent(data: dict) -> Agent:
     trust = None
     if data.get("trust_score"):
         trust = TrustScore(**data["trust_score"])
-    elif data.get("total") is not None:
-        # Server may return trust fields flat at top level
+    elif data.get("trust_total") is not None:
+        # Server returns trust fields with trust_ prefix (flat structure)
+        trust = TrustScore(
+            total=data.get("trust_total", 0),
+            task_completion=data.get("trust_task_completion", 0),
+            response_quality=data.get("trust_response_quality", 0),
+            latency_reliability=data.get("trust_latency_reliability", 0),
+            uptime_score=data.get("trust_uptime_score", 0),
+            verification_bonus=data.get("trust_verification_bonus", 0),
+        )
+    elif (
+        isinstance(data.get("total"), int)
+        and "task_completion" in data
+    ):
+        # Flat trust fields (e.g., direct trust endpoint response)
         trust = TrustScore(
             total=data.get("total", 0),
             task_completion=data.get("task_completion", 0),
