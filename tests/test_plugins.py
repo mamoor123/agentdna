@@ -3,13 +3,13 @@
 import pytest
 import asyncio
 
-from agentdna.plugins.observe import observe, get_stats, _stats_registry
+from agentdna.plugins.observe import observe, get_stats, reset_stats
 
 
 class TestObserveDecorator:
     def setup_method(self):
         """Clear stats registry between tests."""
-        _stats_registry.clear()
+        reset_stats()
 
     def test_sync_function_tracking(self):
         @observe

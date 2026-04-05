@@ -1,5 +1,9 @@
 """Tests for the Sandbox Verification System."""
 
+import pytest
+
+pytest.importorskip("httpx", reason="Sandbox tests require httpx: pip install agentdna-sdk[discovery]")
+
 from agentdna.sandbox.verifier import (
     AgentVerifier,
     CheckResult,
